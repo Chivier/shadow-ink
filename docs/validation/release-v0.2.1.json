@@ -1,6 +1,6 @@
 {
   "version": "0.2.1",
-  "status": "Local release gates and static sender acceptance passed; native Mac package acceptance pending",
+  "status": "All local release gates, source CI and native macOS package checks passed",
   "checks": {
     "source_sha256": "37c10b87bec599bc1428354176828e3f4e9b4f7b21d3f8d7877159450797c556",
     "all_passed": true,
@@ -258,7 +258,7 @@
   },
   "macos": {
     "build_and_structure_checks_passed": true,
-    "native_macos_runtime_verified": false,
+    "native_macos_runtime_verified": true,
     "source_sha256": "37c10b87bec599bc1428354176828e3f4e9b4f7b21d3f8d7877159450797c556",
     "build_command": [
       "cargo",
@@ -302,11 +302,11 @@
             "slice_sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962"
           }
         ],
-        "native_macos_runtime_verified": false,
+        "native_macos_runtime_verified": true,
         "rcodesign_verifier_exit_code": 1,
-        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "verification_method": "Independent CodeDirectory hashes plus native Apple codesign, QR/zstd, character/targeted-resume and PTY-hangup selftests",
         "archive": "shadow-ink-0.2.1-macos-aarch64.tar.gz",
-        "archive_sha256": "2b20c82ca565c2a71ebb9f92be1259565ff9f2a9b9c2bbf3e6c89d78c7db4235"
+        "native_workflow_run_url": "https://github.com/Chivier/shadow-ink/actions/runs/40535724733"
       },
       "x86_64": {
         "file": "shadow-ink",
@@ -337,11 +337,11 @@
             "slice_sha256": "1b990caee1ee6d7bf284267a4ad9c3ff49f35b2946ddd386a27e5ac296d9123a"
           }
         ],
-        "native_macos_runtime_verified": false,
+        "native_macos_runtime_verified": true,
         "rcodesign_verifier_exit_code": 1,
-        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "verification_method": "Independent CodeDirectory hashes plus native Apple codesign, QR/zstd, character/targeted-resume and PTY-hangup selftests",
         "archive": "shadow-ink-0.2.1-macos-x86_64.tar.gz",
-        "archive_sha256": "d1db0f5ccb3eaa49b1f7212abca171f3ada4abbc9bc2d1085e12eed4d987691c"
+        "native_workflow_run_url": "https://github.com/Chivier/shadow-ink/actions/runs/40535724733"
       },
       "universal2": {
         "file": "shadow-ink",
@@ -394,11 +394,11 @@
             "slice_sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962"
           }
         ],
-        "native_macos_runtime_verified": false,
+        "native_macos_runtime_verified": true,
         "rcodesign_verifier_exit_code": 1,
-        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "verification_method": "Independent CodeDirectory hashes plus native Apple codesign, QR/zstd, character/targeted-resume and PTY-hangup selftests",
         "archive": "shadow-ink-0.2.1-macos-universal2.tar.gz",
-        "archive_sha256": "dbec1bbaa5a4017bb846a467ce4340b73fd5d49348470121c57d64ced5fbf2d7"
+        "native_workflow_run_url": "https://github.com/Chivier/shadow-ink/actions/runs/40535724733"
       }
     }
   },
@@ -417,5 +417,12 @@
     "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 15.458s\n\nOK\n",
     "video_runtime_tested": false,
     "ffmpeg_available": true
+  },
+  "native_macos_validation": "macos-v0.2.1.json",
+  "source_ci": {
+    "conclusion": "success",
+    "headSha": "d224aab120a4bd233975c1cfeb02f49321f2897e",
+    "status": "completed",
+    "url": "https://github.com/Chivier/shadow-ink/actions/runs/40535630195"
   }
 }

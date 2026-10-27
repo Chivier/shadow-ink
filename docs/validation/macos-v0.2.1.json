@@ -1,0 +1,86 @@
+{
+  "all_passed": true,
+  "repository": "Chivier/shadow-ink",
+  "workflow_run_id": 40535724733,
+  "workflow_run_url": "https://github.com/Chivier/shadow-ink/actions/runs/40535724733",
+  "source_commit": "d224aab120a4bd233975c1cfeb02f49321f2897e",
+  "source_sha256": "37c10b87bec599bc1428354176828e3f4e9b4f7b21d3f8d7877159450797c556",
+  "reports": [
+    {
+      "variant": "aarch64",
+      "runner": "macos-native-macos-15",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "binary_sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "text_and_targeted_resume_verified": true,
+        "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 22.796s\n\nOK\n",
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "universal2",
+      "runner": "macos-native-macos-15",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "binary_sha256": "1d94e7f8712becfe9e5030591693afbd17757160c457996b0c0075362dc565e5",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "text_and_targeted_resume_verified": true,
+        "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 23.928s\n\nOK\n",
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "universal2",
+      "runner": "macos-native-macos-15-intel",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+        "machine": "x86_64",
+        "binary_sha256": "1d94e7f8712becfe9e5030591693afbd17757160c457996b0c0075362dc565e5",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "text_and_targeted_resume_verified": true,
+        "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 46.239s\n\nOK\n",
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "x86_64",
+      "runner": "macos-native-macos-15-intel",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+        "machine": "x86_64",
+        "binary_sha256": "1b990caee1ee6d7bf284267a4ad9c3ff49f35b2946ddd386a27e5ac296d9123a",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "text_and_targeted_resume_verified": true,
+        "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 47.151s\n\nOK\n",
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    }
+  ]
+}
