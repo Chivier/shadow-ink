@@ -1,0 +1,17 @@
+{
+  "profile": "tqr-v1-gf256-systematic-vandermonde",
+  "polynomial": "0x11d",
+  "k": 3,
+  "n": 5,
+  "symbol_bytes": 224,
+  "input": "data[i] = (i * 31) mod 256; length = k * symbol_bytes - 36",
+  "data_sha256": "ba8b1deda3f2d5764c98d771f0851b581b58138a41386ace1424d04ab0a6bbff",
+  "shard_sha256": [
+    "ba5372dd730e4c8f000d4256323d375a1081a4147e6028bfe2e76d64e7ade683",
+    "54aba9de954c1e4e3436323db63f47c5eac1b198a06b2896bccb1333a43d7830",
+    "f5fe349cfbef58a3c216420d9a5d8edaab5f2c00c6aae9a2ee8e2056f57c82c9",
+    "2dd07d715274040524f36dbb34af5f1fca670c016eb487f845aa14d2fca2b4b6",
+    "615fd34890e4ec79b2c5733ecf32b05e9eff4ea5b9206445666a86176ff9ffec"
+  ],
+  "all_shards_sha256": "3eb1b4901729f8fa2d9138ceac6afb8207204954f188aa1d44c1d9da709c22e8"
+}

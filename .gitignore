@@ -1,0 +1,8 @@
+/target/
+/dist/
+/acceptance-output/
+*.tqtx
+*.part
+*.sqlite*
+__pycache__/
+/.intentionally-empty-file.o

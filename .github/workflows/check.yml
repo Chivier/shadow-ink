@@ -1,0 +1,70 @@
+name: check
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  linux:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        if: github.event_name != 'release'
+        with:
+          components: rustfmt, clippy
+      - run: sudo apt-get update && sudo apt-get install -y tmux ffmpeg cmake g++
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo test --locked --no-default-features
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1
+  macos:
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        if: github.event_name != 'release'
+        with:
+          components: rustfmt, clippy
+      - run: brew install tmux ffmpeg cmake
+      - run: cargo test --locked
+        if: github.event_name != 'release'
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+        if: github.event_name != 'release'
+      - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1
+        if: github.event_name != 'release'
+      - name: Verify published macOS binaries on native hardware
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TQR_RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tqr-release"
+          gh release download "$TQR_RELEASE_TAG" --pattern '*macos-*.tar.gz' --dir "$RUNNER_TEMP/tqr-release"
+          case "$(uname -m)" in
+            arm64) native_arch=aarch64 ;;
+            x86_64) native_arch=x86_64 ;;
+            *) exit 1 ;;
+          esac
+          for arch in universal2 "$native_arch"; do
+            archive=$(find "$RUNNER_TEMP/tqr-release" -name "*macos-$arch.tar.gz" -print -quit)
+            tar -xzf "$archive" -C "$RUNNER_TEMP/tqr-release"
+            package_dir=${archive%.tar.gz}
+            python3 "$package_dir/selftest.py" --report "$RUNNER_TEMP/macos-$arch-native.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'release' && always()
+        with:
+          name: macos-native-${{ matrix.os }}
+          path: ${{ runner.temp }}/macos-*-native.json
