@@ -1,0 +1,78 @@
+{
+  "all_passed": true,
+  "repository": "Chivier/shadow-ink",
+  "workflow_run_id": 40434697444,
+  "workflow_run_url": "https://github.com/Chivier/shadow-ink/actions/runs/40434697444",
+  "source_commit": "e847c756d0c7e5d6f9ec6a8b28a4ad3fa42961f4",
+  "source_sha256": "fcda500ac0aae394490b5f02689720ef115c89001cf55dcce0a253f376f44429",
+  "reports": [
+    {
+      "variant": "aarch64",
+      "runner": "macos-native-macos-15",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "binary_sha256": "2a399efcba3a67f7eae2ca1e3e95112bef1369ef1ccbd1ddcf86a3e6ec434c93",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "universal2",
+      "runner": "macos-native-macos-15",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "binary_sha256": "5f7a98cf5d9243d0c3d78e58082d41e191bb3ee432118f698248b02b3bb24149",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "universal2",
+      "runner": "macos-native-macos-15-intel",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+        "machine": "x86_64",
+        "binary_sha256": "5f7a98cf5d9243d0c3d78e58082d41e191bb3ee432118f698248b02b3bb24149",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    },
+    {
+      "variant": "x86_64",
+      "runner": "macos-native-macos-15-intel",
+      "result": {
+        "all_passed": true,
+        "native_macos_runtime_verified": true,
+        "platform": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+        "machine": "x86_64",
+        "binary_sha256": "aafa0d87e0ee028678337680a10d80f315572398b6174bf46911412540130b2c",
+        "codesign_verified": true,
+        "original_bytes": 20000,
+        "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+        "zstd_and_tmux_resume_verified": true,
+        "video_runtime_tested": false,
+        "ffmpeg_available": true
+      }
+    }
+  ]
+}

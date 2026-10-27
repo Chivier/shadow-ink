@@ -10,6 +10,8 @@
 
 交叉构建会检查 Mach-O 架构、最低系统版本、动态依赖和每个签名代码页的 SHA-256。macOS 原生运行结果另由私有仓库的 Apple Silicon／Intel CI 记录，包括 Apple `codesign` 验证及下载的实际发行包自测；请以发行页关联的 CI 和原生报告为准，不将 Linux 测试标记为 macOS 运行验收。发行包内也提供本机自测脚本。
 
+**v0.1.0 已通过 macOS 15.7.9 的 Apple Silicon 和 Intel 原生发行包验收**：两种机器分别验证 universal2 和对应单架构包，检查 Apple 签名、压缩、TUI 接收、重启续传及原文件逐字节一致性。[原生验收任务](https://github.com/Chivier/shadow-ink/actions/runs/40434697444)，机器报告见包内 `reports/macos-native.json`。
+
 ## 安装与首次检查
 
 下载 `tqr-0.1.0-macos-universal2.tar.gz` 并解压，然后进入该目录：

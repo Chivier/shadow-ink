@@ -53,10 +53,12 @@ Machine-readable results and binary SHA-256 values are in `acceptance-output/art
 
 ## Limits of the evidence
 
-The user's actual server A, Mac, font and screen recording were not supplied for direct access. The tests prove the software and the stated Linux/SSH/tmux/video paths in this environment; they do not claim deployment to that host, physical aarch64 hardware testing, macOS/Windows acceptance, or a measured laptop character-cell ratio. The tmux path reconstructs logical cells and does not require a 1:2 font. For video on the laptop, start at the documented 3fps and verify a small file before increasing speed.
+The user's actual server A, Mac, font and screen recording were not supplied for direct access. The local tests prove the stated Linux/SSH/tmux/video paths; macOS evidence is recorded separately below. These results do not claim deployment to the user's host, native aarch64 Linux server testing, Windows acceptance, or a measured laptop character-cell ratio. The tmux path reconstructs logical cells and does not require a 1:2 font. For video on the laptop, start at the documented 3fps and verify a small file before increasing speed.
 
 Run `python3 scripts/verify.py` to repeat the release gates. With Zig, cargo-zigbuild, OpenSSH server/keygen and an ARM emulator available, repeat static artifact acceptance with `python3 scripts/verify_artifacts.py`. Use `TQR_ARM_EMULATOR` to point at an installed emulator.
 
 ## macOS distribution
 
 Complete aarch64, x86_64 and universal2 receivers are built for macOS 11+. Cross-build inspection checks architecture, system-only dynamic dependencies and each SHA-256 CodeDirectory page. The private repository runs native macOS source tests on Apple Silicon and Intel, and release events download the exact published binaries for Apple codesign verification and local TUI/zstd/resume selftests. See the release-linked Actions results and native JSON artifacts for the current runtime verdict; build reports do not substitute for native execution.
+
+Native macOS release validation passed on **macOS 15.7.9 arm64 and x86_64**. Each runner downloaded the published universal2 and matching thin binary, verified all Apple code signatures, then prepared zstd data, received partial QR playback, restarted playback, resumed disk state and checked the original 20,000 bytes exactly. Reports bind each result to its binary SHA-256 in [validation/macos-v0.1.0.json](validation/macos-v0.1.0.json). Runtime release workflow: https://github.com/Chivier/shadow-ink/actions/runs/40434697444. Native source-suite workflow (including H.264 video): https://github.com/Chivier/shadow-ink/actions/runs/40434373358.

@@ -13,7 +13,8 @@ cp target/release/tqr "dist/$name/tqr"
 cp target/sender/release/tqr "dist/$name/tqr-send"
 cp README.md LICENSE "dist/$name/"
 python3 scripts/collect_notices.py "dist/$name/THIRD_PARTY_NOTICES.txt"
-cp docs/PROTOCOL.md docs/BUILD.md docs/ACCEPTANCE.md "dist/$name/docs/"
+cp docs/PROTOCOL.md docs/BUILD.md docs/ACCEPTANCE.md docs/MACOS.md "dist/$name/docs/"
+if test -d docs/validation; then cp -R docs/validation "dist/$name/docs/"; fi
 mkdir -p "dist/$name/reports"
 cp acceptance-output/checks.json acceptance-output/tmux.json acceptance-output/video.json "dist/$name/reports/"
 if test -f acceptance-output/artifacts.json; then

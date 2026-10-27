@@ -11,7 +11,8 @@ for target in x86_64 aarch64; do
     mkdir -p "dist/$name/docs"
     cp "target/$target-unknown-linux-musl/release/tqr" "dist/$name/tqr"
     cp README.md LICENSE dist/THIRD_PARTY_NOTICES.txt "dist/$name/"
-    cp docs/PROTOCOL.md docs/BUILD.md docs/ACCEPTANCE.md "dist/$name/docs/"
+    cp docs/PROTOCOL.md docs/BUILD.md docs/ACCEPTANCE.md docs/MACOS.md "dist/$name/docs/"
+    if test -d docs/validation; then cp -R docs/validation "dist/$name/docs/"; fi
     mkdir -p "dist/$name/reports"
     cp acceptance-output/checks.json acceptance-output/artifacts.json acceptance-output/tmux*.json acceptance-output/video.json "dist/$name/reports/"
     (cd "dist/$name" && sha256sum tqr > SHA256SUMS)

@@ -56,6 +56,15 @@ for arch in ["aarch64", "x86_64", "universal2"]:
         raise RuntimeError(verification_diagnostic)
     info["rcodesign_verifier_exit_code"] = verified.returncode
     info["verification_method"] = "independent SHA-256 CodeDirectory page verification; native Apple codesign pending"
+    native_proof = ROOT / "docs/validation/macos-v0.1.0.json"
+    if native_proof.exists():
+        proof = json.loads(native_proof.read_text())
+        matching = [r["result"] for r in proof["reports"] if r["variant"] == arch and r["result"]["binary_sha256"] == info["sha256"] and r["result"]["all_passed"] and r["result"]["native_macos_runtime_verified"] and r["result"]["codesign_verified"]]
+        required_machines = {"arm64", "x86_64"} if arch == "universal2" else {"arm64" if arch == "aarch64" else "x86_64"}
+        if proof["all_passed"] and {r["machine"] for r in matching} == required_machines:
+            info["native_macos_runtime_verified"] = True
+            info["verification_method"] = "independent CodeDirectory hashes plus native Apple codesign and TUI/zstd/resume selftest"
+            info["native_workflow_run_url"] = proof["workflow_run_url"]
     expected = {"aarch64", "x86_64"} if arch == "universal2" else {arch}
     if {s["architecture"] for s in info["slices"]} != expected:
         raise RuntimeError("wrong architecture in release")
@@ -66,17 +75,21 @@ for arch in ["aarch64", "x86_64", "universal2"]:
     (stage / "docs").mkdir(exist_ok=True)
     for source in ["MACOS.md", "PROTOCOL.md", "BUILD.md", "ACCEPTANCE.md"]:
         shutil.copy2(ROOT / "docs" / source, stage / "docs" / source)
+    if (ROOT / "docs/validation").exists():
+        shutil.copytree(ROOT / "docs/validation", stage / "docs/validation", dirs_exist_ok=True)
     shutil.copy2(ROOT / "scripts/macos_selftest.py", stage / "selftest.py")
     (stage / "SHA256SUMS").write_text(f"{info['sha256']}  tqr\n" + f"{hashlib.sha256((stage / 'selftest.py').read_bytes()).hexdigest()}  selftest.py\n")
     (stage / "reports").mkdir(exist_ok=True)
     shutil.copy2(REPORT / "checks.json", stage / "reports/linux-checks.json")
     (stage / "reports/macos-binary.json").write_text(json.dumps(info, indent=2) + "\n")
+    if info["native_macos_runtime_verified"]:
+        shutil.copy2(native_proof, stage / "reports/macos-native.json")
     archive = DIST / f"{name}.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
         tar.add(stage, arcname=name)
     info["archive"] = archive.name
     info["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
-report = {"build_and_structure_checks_passed": True, "native_macos_runtime_verified": False, "source_sha256": source_fingerprint(ROOT), "build_command": command, "macos_deployment_target": "11.0", "sdk_root": Path(env.get("SDKROOT", "unknown")).name, "signing": "SHA-256 ad-hoc; no Developer ID or notarization", "artifacts": artifacts}
+report = {"build_and_structure_checks_passed": True, "native_macos_runtime_verified": all(a["native_macos_runtime_verified"] for a in artifacts.values()), "source_sha256": source_fingerprint(ROOT), "build_command": command, "macos_deployment_target": "11.0", "sdk_root": Path(env.get("SDKROOT", "unknown")).name, "signing": "SHA-256 ad-hoc; no Developer ID or notarization", "artifacts": artifacts}
 (REPORT / "macos.json").write_text(json.dumps(report, indent=2) + "\n")
 (DIST / "MACOS-SHA256SUMS").write_text("".join(f"{a['archive_sha256']}  {a['archive']}\n" for a in artifacts.values()))
 print(json.dumps(report, indent=2))
