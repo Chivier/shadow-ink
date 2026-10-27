@@ -67,9 +67,33 @@ pub fn pane_size(pane: &str, socket: Option<&Path>) -> Result<(u16, u16)> {
 }
 
 pub fn capture_tmux(pane: &str, socket: Option<&Path>, index: u64) -> Result<Option<Capture>> {
-    let (cols, rows) = pane_size(pane, socket)?;
+    ensure!(
+        pane.starts_with('%') && pane.len() > 1 && pane[1..].bytes().all(|b| b.is_ascii_digit()),
+        "use an explicit pane ID, such as tmux:%3 (see tqr panes)"
+    );
+    // Queue geometry/capture/geometry in one tmux client. Preserve the resize
+    // guard without spawning three clients for every sample.
     let out = tmux(socket)
-        .args(["capture-pane", "-p", "-e", "-N", "-t", pane])
+        .args([
+            "display-message",
+            "-p",
+            "-t",
+            pane,
+            "#{pane_width} #{pane_height}",
+            ";",
+            "capture-pane",
+            "-p",
+            "-e",
+            "-N",
+            "-t",
+            pane,
+            ";",
+            "display-message",
+            "-p",
+            "-t",
+            pane,
+            "#{pane_width} #{pane_height}",
+        ])
         .output()?;
     ensure!(
         out.status.success(),
@@ -80,10 +104,22 @@ pub fn capture_tmux(pane: &str, socket: Option<&Path>, index: u64) -> Result<Opt
         out.stdout.len() <= 4 * 1024 * 1024,
         "tmux capture too large"
     );
-    if pane_size(pane, socket)? != (cols, rows) {
+    capture_tmux_reply(&out.stdout, index)
+}
+
+fn capture_tmux_reply(reply: &[u8], index: u64) -> Result<Option<Capture>> {
+    let reply = std::str::from_utf8(reply)?.trim_end_matches('\n');
+    let (before, rest) = reply.split_once('\n').context("missing capture geometry")?;
+    let (dump, after) = rest
+        .rsplit_once('\n')
+        .context("missing final capture geometry")?;
+    if before != after {
         return Ok(None);
     }
-    tmux_image(&out.stdout, cols, rows).map(|v| {
+    let sizes: Vec<_> = before.split_whitespace().collect();
+    ensure!(sizes.len() == 2, "invalid capture geometry");
+    let (cols, rows) = (sizes[0].parse::<u16>()?, sizes[1].parse::<u16>()?);
+    tmux_image(dump.as_bytes(), cols, rows).map(|v| {
         v.map(|(image, marker)| Capture {
             image,
             marker: Some(marker),
@@ -139,7 +175,10 @@ pub fn tmux_image(bytes: &[u8], cols: u16, rows: u16) -> Result<Option<(GrayImag
     if !(29..=185).contains(&q) || (q - 25) % 4 != 0 || q >= cols {
         return Ok(None);
     }
-    let mut image = GrayImage::new(u32::from(q) * 4, u32::from(q) * 4);
+    // tmux supplies exact binary modules, unlike a recording. Two pixels per
+    // module retain the quiet zone while reducing decoder pixels by 75%.
+    const SCALE: u32 = 2;
+    let mut image = GrayImage::new(u32::from(q) * SCALE, u32::from(q) * SCALE);
     for y in 0..q {
         for x in 0..q {
             let cell = screen.cell(1 + y / 2, x).context("missing terminal cell")?;
@@ -160,9 +199,13 @@ pub fn tmux_image(bytes: &[u8], cols: u16, rows: u16) -> Result<Option<(GrayImag
             let Some(value) = colour(if use_fg { fg } else { bg }) else {
                 return Ok(None);
             };
-            for dy in 0..4 {
-                for dx in 0..4 {
-                    image.put_pixel(u32::from(x) * 4 + dx, u32::from(y) * 4 + dy, Luma([value]));
+            for dy in 0..SCALE {
+                for dx in 0..SCALE {
+                    image.put_pixel(
+                        u32::from(x) * SCALE + dx,
+                        u32::from(y) * SCALE + dy,
+                        Luma([value]),
+                    );
                 }
             }
         }
@@ -457,5 +500,43 @@ mod tests {
         let torn = dump.replacen("TQ1 ", "TQ2 ", 1);
         assert!(tmux_image(torn.as_bytes(), 120, 40).unwrap().is_none());
         assert!("0,0,0,2".parse::<Roi>().is_err());
+    }
+
+    #[test]
+    fn batched_capture_and_large_symbols() {
+        for (version, size, ecc) in [(12, 224, "M"), (22, 712, "M"), (40, 2893, "L")] {
+            let mut frame = crate::protocol::tests::frame();
+            frame.symbol_bytes = size;
+            frame.payload = (0..usize::from(size)).map(|i| (i * 131) as u8).collect();
+            let bytes = frame.encode().unwrap();
+            let (width, height) = crate::render::geometry(version).unwrap();
+            let cols = width + 1;
+            let rows = height + 3;
+            let dump = crate::render::terminal(&frame, version, ecc, 1)
+                .unwrap()
+                .replace("\r\n", "\n");
+            let reply = format!("{cols} {rows}\n{dump}\n{cols} {rows}\n");
+            let capture = capture_tmux_reply(reply.as_bytes(), 7).unwrap().unwrap();
+            assert_eq!(capture.index, 7);
+            assert_eq!(decode(&capture.image).unwrap(), vec![bytes]);
+            let resized = format!("{cols} {rows}\n{dump}\n{} {rows}\n", cols + 1);
+            assert!(capture_tmux_reply(resized.as_bytes(), 0).unwrap().is_none());
+        }
+    }
+
+    #[test]
+    fn low_entropy_v40_snapshots() {
+        for seq in 0..12 {
+            let mut frame = crate::protocol::tests::frame();
+            frame.seq = seq;
+            frame.symbol_bytes = 2893;
+            frame.payload = vec![0; 2893];
+            let bytes = frame.encode().unwrap();
+            let dump = crate::render::terminal(&frame, 40, "L", 1)
+                .unwrap()
+                .replace("\r\n", "\n");
+            let (image, _) = tmux_image(dump.as_bytes(), 186, 96).unwrap().unwrap();
+            assert_eq!(decode(&image).unwrap(), vec![bytes], "sequence {seq}");
+        }
     }
 }

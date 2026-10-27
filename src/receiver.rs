@@ -16,11 +16,15 @@ use std::{
 };
 
 #[derive(Default, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Stats {
     pub captures: u64,
     pub qr_codes: u64,
     pub valid_frames: u64,
     pub new_symbols: u64,
+    pub new_data_symbols: u64,
+    pub new_metadata_symbols: u64,
+    pub observed_sender_fps: Option<f64>,
     pub duplicate_symbols: u64,
     pub repeated_captures: u64,
     pub unstable_captures: u64,
@@ -103,6 +107,7 @@ pub fn receive(options: Options<'_>, stop: Arc<AtomicBool>) -> Result<Report> {
     };
     let mut runs: VecDeque<(u64, u64)> = VecDeque::new();
     let mut last_playback = None;
+    let mut playback_start: Option<(u64, u64, Instant)> = None;
     let mut last_status = Instant::now();
     let interval = Duration::from_secs_f64(1.0 / options.capture_fps);
     loop {
@@ -153,6 +158,16 @@ pub fn receive(options: Options<'_>, stop: Arc<AtomicBool>) -> Result<Report> {
                     continue;
                 }
                 stats.valid_frames += 1;
+                if options.transfer.is_none_or(|id| id == frame.transfer) {
+                    match playback_start {
+                        Some((run, seq, at)) if run == frame.run && frame.seq > seq => {
+                            stats.observed_sender_fps =
+                                Some((frame.seq - seq) as f64 / at.elapsed().as_secs_f64());
+                        }
+                        Some((run, _, _)) if run == frame.run => {}
+                        _ => playback_start = Some((frame.run, frame.seq, Instant::now())),
+                    }
+                }
                 let identity = (frame.transfer, frame.run, frame.seq);
                 if last_playback == Some(identity) {
                     stats.repeated_captures += 1;
@@ -175,7 +190,14 @@ pub fn receive(options: Options<'_>, stop: Arc<AtomicBool>) -> Result<Report> {
                     Ok(Ingest::Duplicate) => stats.duplicate_symbols += 1,
                     Ok(Ingest::Ignored) => stats.foreign_frames += 1,
                     Ok(Ingest::Conflict) => stats.conflicting_symbols += 1,
-                    Ok(_) => stats.new_symbols += 1,
+                    Ok(_) => {
+                        stats.new_symbols += 1;
+                        if frame.object == 1 {
+                            stats.new_data_symbols += 1;
+                        } else {
+                            stats.new_metadata_symbols += 1;
+                        }
+                    }
                     Err(e) => {
                         // Malformed protocol data is rejected. Storage/I/O failures must stop
                         // reception, never be disguised as a harmless bad QR frame.

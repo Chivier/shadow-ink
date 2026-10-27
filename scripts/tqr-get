@@ -1,0 +1,671 @@
+#!/usr/bin/env python3
+"""Receive a remote file or directory with one command, using terminal QR playback."""
+import argparse
+import fcntl
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+
+
+SPEEDS = {
+    'safe': dict(qr_version=12, ecc='M', symbol_bytes=224, fps=10, capture_fps=40),
+    'balanced': dict(qr_version=22, ecc='M', symbol_bytes=712, fps=20, capture_fps=80),
+    'fast': dict(qr_version=40, ecc='L', symbol_bytes=2893, fps=30, capture_fps=120),
+    'turbo': dict(qr_version=40, ecc='L', symbol_bytes=2893, fps=60, capture_fps=120),
+}
+
+
+def required_geometry(settings):
+    modules = 4 * settings['qr_version'] + 25
+    return max(modules, 55) + 1, (modules + 1)//2 + 3
+
+
+def binary_hash(binary):
+    return hashlib.sha256(Path(binary).read_bytes()).hexdigest()
+
+
+def choose_settings(args, host, base, previous=None):
+    speed = args.speed or 'auto'
+    if previous and args.speed is None:
+        settings = previous.get('transfer_settings')
+        if settings is None:
+            size = previous['manifest']['symbol_bytes']
+            settings = next((dict(v, name=k) for k, v in SPEEDS.items() if v['symbol_bytes'] == size), None)
+        if settings is None:
+            raise GetError('旧断点的二维码配置未知；使用 --fresh 新建传输')
+        settings = dict(settings)
+    elif speed == 'auto':
+        recommended = read_json(base/'benchmarks'/host/'recommended.json')
+        if (recommended and recommended.get('receiver_sha256') == binary_hash(shutil.which('tqr'))
+                and 0 <= time.time()-recommended.get('measured_at', 0) <= 14*86400):
+            settings = dict(recommended['settings'], name='auto（本机实测）')
+        else:
+            settings = dict(SPEEDS['safe'], name='safe（尚无有效测速）')
+    else:
+        settings = dict(SPEEDS[speed], name=speed)
+    if previous and settings['symbol_bytes'] != previous['manifest']['symbol_bytes']:
+        raise GetError('所选档位改变了分片容量；旧断点已保留。用 --fresh 开始新档位，或不指定 --speed 继续旧任务')
+    if args.fps is not None:
+        settings['fps'] = args.fps
+    if args.capture_fps is not None:
+        settings['capture_fps'] = args.capture_fps
+    return settings
+
+
+REMOTE_PREPARE = r'''
+import fcntl, hashlib, json, os, pathlib, shutil, subprocess, sys, tarfile, uuid
+c = json.loads(sys.argv[1])
+root = pathlib.Path.home() / '.cache/tqr-get'
+root.mkdir(parents=True, exist_ok=True, mode=0o700)
+binary = shutil.which('tqr') or str(pathlib.Path.home()/'.local/bin/tqr')
+if not pathlib.Path(binary).is_file():
+    raise RuntimeError('Remote tqr is missing; install the sender first')
+def inspect(bundle):
+    p = subprocess.run([binary, 'inspect', str(bundle)], capture_output=True, text=True)
+    if p.returncode:
+        raise RuntimeError(p.stderr.strip())
+    return json.loads(p.stdout)
+def emit(meta):
+    print('TQR_GET_JSON=' + json.dumps(meta), flush=True)
+if c.get('resume'):
+    meta = c['resume']
+    bundle = pathlib.Path(meta['remote_bundle'])
+    if not bundle.resolve().is_relative_to(root.resolve()) or not bundle.is_file():
+        raise RuntimeError('Saved remote bundle is missing. Use --fresh to start again.')
+    checked = inspect(bundle)
+    if checked['transfer_id'] != meta['transfer_id']:
+        raise RuntimeError('Saved remote bundle identity changed. Use --fresh.')
+    meta['binary'] = binary
+    meta['resumed_snapshot'] = True
+    emit(meta)
+    sys.exit(0)
+source = pathlib.Path(os.path.expanduser(c['path']))
+if not source.is_absolute():
+    source = pathlib.Path.home() / source
+source = source.resolve(strict=True)
+if not (source.is_file() or source.is_dir()):
+    raise RuntimeError('Source must be a regular file or directory')
+if source.is_dir() and root.resolve().is_relative_to(source):
+    raise RuntimeError('Source contains the tqr-get cache; select a more specific directory')
+def fingerprint():
+    digest = hashlib.sha256()
+    paths = [source]
+    if source.is_dir():
+        for parent, dirs, files in os.walk(source, followlinks=False):
+            dirs.sort()
+            files.sort()
+            paths.extend(pathlib.Path(parent)/name for name in dirs + files)
+    for p in paths:
+        s = p.lstat()
+        if not (p.is_symlink() or p.is_dir() or p.is_file()):
+            raise RuntimeError('Directory contains a socket, device or FIFO: ' + str(p))
+        record = [str(p.relative_to(source.parent)), s.st_mode, s.st_size,
+                  s.st_mtime_ns, s.st_ctime_ns, s.st_ino,
+                  os.readlink(p) if p.is_symlink() else None]
+        digest.update(json.dumps(record, ensure_ascii=True).encode())
+    return digest.hexdigest()
+key = hashlib.sha256(str(source).encode()).hexdigest()
+cache = root / key
+cache.mkdir(exist_ok=True, mode=0o700)
+with (cache/'lock').open('a') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    before = fingerprint()
+    size = c.get('symbol_bytes', 224)
+    compression = c.get('compress', 'auto')
+    version = before + '-s' + str(size) + '-' + compression + ('-' + uuid.uuid4().hex if c['fresh'] else '')
+    folder = cache/version
+    folder.mkdir(exist_ok=True, mode=0o700)
+    metadata = folder/'metadata.json'
+    if metadata.is_file():
+        meta = json.loads(metadata.read_text())
+        checked = inspect(pathlib.Path(meta['remote_bundle']))
+        if checked['transfer_id'] != meta['transfer_id']:
+            raise RuntimeError('Cached bundle identity mismatch; use --fresh')
+    else:
+        original = source
+        if source.is_dir():
+            original = folder/(source.name + '.tar')
+            # Archive only. Extraction is deliberately left to the recipient.
+            with tarfile.open(original, 'w', dereference=False) as tar:
+                tar.add(source, arcname=source.name)
+        # An interrupted prepare cannot leave the reusable bundle half-written.
+        pending = folder/('pending-' + uuid.uuid4().hex + '.tqtx')
+        p = subprocess.run([binary, 'prepare', str(original), '--compress', compression,
+                            '--symbol-bytes', str(size),
+                            '--out', str(pending)], capture_output=True, text=True)
+        if p.returncode:
+            raise RuntimeError(p.stderr.strip())
+        if fingerprint() != before:
+            pending.unlink(missing_ok=True)
+            raise RuntimeError('Source changed during preparation. Retry after writes finish.')
+        bundle = folder/'prepared.tqtx'
+        pending.replace(bundle)
+        prepared = json.loads(p.stdout)
+        meta = dict(source_path=str(source), source_kind='directory' if source.is_dir() else 'file',
+                    remote_bundle=str(bundle), transfer_id=prepared['transfer_id'],
+                    manifest=prepared['manifest'], source_fingerprint=before)
+        pending_meta = folder/('metadata-' + uuid.uuid4().hex + '.json')
+        pending_meta.write_text(json.dumps(meta))
+        pending_meta.replace(metadata)
+        if source.is_dir():
+            original.unlink()
+    meta['binary'] = binary
+    meta['resumed_snapshot'] = False
+    emit(meta)
+'''
+
+
+class GetError(Exception):
+    pass
+
+
+def run(args, **kwargs):
+    result = subprocess.run(list(map(str, args)), capture_output=True, text=True, **kwargs)
+    if result.returncode:
+        raise GetError(result.stderr.strip() or result.stdout.strip() or f'Command exited {result.returncode}')
+    return result.stdout.strip()
+
+
+def save_json(path, value):
+    temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
+    with temporary.open('x') as out:
+        json.dump(value, out, ensure_ascii=False, indent=2)
+        out.write('\n')
+    temporary.replace(path)
+
+
+def read_json(path):
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def progress_lines(path):
+    # Keep monitoring cost bounded during transfers that run for hours.
+    with path.open('rb') as log:
+        log.seek(0, os.SEEK_END)
+        log.seek(max(0, log.tell()-4096))
+        return log.read().decode(errors='replace').splitlines()
+
+
+def file_matches(path, manifest):
+    if not path.is_file() or path.is_symlink() or path.stat().st_size != manifest['original_bytes']:
+        return False
+    digest = hashlib.sha256()
+    with path.open('rb') as data:
+        for chunk in iter(lambda: data.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest() == manifest['original_sha256']
+
+
+def source_argument(value, kiss=False):
+    if kiss:
+        host, path = 'wgkissshot', value
+    else:
+        host, separator, path = value.partition(':')
+        if not separator:
+            raise GetError('用法：tqr-get 服务器:文件路径，例如 tqr-get wgkissshot:results.csv')
+    if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.@-]*', host):
+        raise GetError('服务器必须是 SSH 别名或主机名，例如 wgkissshot')
+    if not path or any(ord(char) < 32 or ord(char) == 127 for char in path):
+        raise GetError('文件路径不能为空或包含控制字符')
+    return host, path
+
+
+def remote_prepare(host, path, previous, fresh, settings=None, compression='auto'):
+    config = json.dumps(dict(path=path, resume=previous, fresh=fresh,
+                             symbol_bytes=(settings or SPEEDS['safe'])['symbol_bytes'], compress=compression))
+    command = 'python3 - ' + shlex.quote(config)
+    output = run(['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
+                  '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3',
+                  host, command], input=REMOTE_PREPARE)
+    for line in reversed(output.splitlines()):
+        if line.startswith('TQR_GET_JSON='):
+            meta = json.loads(line[len('TQR_GET_JSON='):])
+            if not re.fullmatch(r'[0-9a-f]{32}', meta['transfer_id']):
+                raise GetError('远端返回的传输 ID 无效')
+            name = meta['manifest']['filename']
+            if (not name or name in ('.', '..') or any(c in name for c in '/\\:')
+                    or any(ord(c) < 32 or ord(c) == 127 for c in name)):
+                raise GetError('远端返回的文件名无效')
+            return meta
+    raise GetError('远端没有返回传输信息：' + output[-2000:])
+
+
+class TerminalTransfer:
+    """Own only the new pane/server; never close an existing user session."""
+    def __init__(self, host, meta, job, no_ui, settings):
+        self.host, self.meta, self.job, self.no_ui = host, meta, job, no_ui
+        self.settings = settings
+        self.socket = None
+        self.pane = None
+        self.attach = None
+        self.temporary = None
+        self.inline = False
+        self.visible = False
+        self.receiver = None
+        self.playing = False
+
+    def tmux(self, *args):
+        base = ['tmux'] + (['-S', self.socket, '-f', '/dev/null'] if self.socket else [])
+        return run(base + list(args), env=self.environment(), stdin=subprocess.DEVNULL)
+
+    def environment(self, attached=False):
+        env = os.environ.copy()
+        if self.socket:
+            for name in ('TMUX', 'TMUX_PANE', 'COLUMNS', 'LINES'):
+                env.pop(name, None)
+            if not attached:
+                # Keep internal batch clients consistent with tuning. An
+                # interactive client retains the real terminal type.
+                env['TERM'] = 'dumb'
+        return env
+
+    def start(self, fps):
+        required_cols, required_rows = required_geometry(self.settings)
+        current = os.environ.get('TMUX_PANE')
+        # Match the isolated canvas used for tuning for large QR grids.
+        terminal = (sys.stdin.isatty() and sys.stdout.isatty() and not self.no_ui
+                    and self.settings['qr_version'] == 12)
+        if terminal and os.environ.get('TMUX') and current:
+            cols, rows = map(int, self.tmux('display-message', '-p', '-t', current,
+                                          '#{pane_width} #{pane_height}').split())
+            if cols >= 2*required_cols + 1 and rows >= required_rows:
+                self.pane = self.tmux('split-window', '-h', '-b', '-d', '-l', str(required_cols), '-P', '-F', '#{pane_id}',
+                                      '-t', current, 'sleep 86400')
+                self.inline = True
+        if not self.pane:
+            self.temporary = tempfile.TemporaryDirectory(prefix='tqr-get-')
+            self.socket = str(Path(self.temporary.name)/'tmux.sock')
+            canvas_cols, canvas_rows = max(244, 2*required_cols + 1), max(45, required_rows + 2)
+            self.pane = self.tmux('new-session', '-d', '-P', '-F', '#{pane_id}', '-x', str(canvas_cols),
+                                  '-y', str(canvas_rows), '-s', 'tqr-get', 'sleep 86400')
+            self.tmux('set-option', '-g', 'window-size', 'manual')
+            self.tmux('set-option', '-g', 'remain-on-exit', 'on')
+            self.tmux('set-option', '-g', 'status', 'off')
+            # A second pane makes the normal terminal UI self-contained.
+            log = self.job/'progress.log'
+            log.touch()
+            # Ctrl-C inside an attached tmux client reaches this pane, not the
+            # controller outside tmux. Forward it so the whole task can stop.
+            progress_command = (
+                'trap ' + shlex.quote(f'kill -INT {os.getpid()}; exit 130') + ' INT; '
+                + shlex.join(['tail', '-n', '30', '-f', str(log)]) + ' & wait $!'
+            )
+            progress_pane = self.tmux('split-window', '-h', '-d', '-l', str(canvas_cols-required_cols-1), '-P', '-F', '#{pane_id}',
+                                      '-t', self.pane, shlex.join(['sh', '-c', progress_command]))
+            self.tmux('select-pane', '-t', progress_pane)
+            columns, lines = shutil.get_terminal_size((0, 0))
+            self.visible = terminal and not os.environ.get('TMUX') and columns >= canvas_cols and lines >= canvas_rows
+        self.tmux('set-option', '-p', '-t', self.pane, 'remain-on-exit', 'on')
+        self.play(fps)
+        if self.visible:
+            print('左侧二维码，右侧进度；完成后自动返回。', flush=True)
+            self.attach = subprocess.Popen(['tmux', '-S', self.socket, 'attach-session', '-t', 'tqr-get'],
+                                           env=self.environment(attached=True))
+
+    def play(self, fps):
+        if self.playing:
+            # Exit the old remote process before replacing its SSH client.
+            self.tmux('send-keys', '-t', self.pane, 'q')
+            deadline = time.monotonic()+4
+            while self.tmux('display-message', '-p', '-t', self.pane, '#{pane_dead}') != '1':
+                if time.monotonic() >= deadline:
+                    raise GetError('旧发送端未退出；进度已保留，请重试')
+                time.sleep(.1)
+        command = shlex.join(['ssh', '-tt', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
+                             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', self.host,
+                             'exec ' + shlex.join([self.meta['binary'], 'send', self.meta['remote_bundle'],
+                                                  '--fps', str(fps), '--qr-version', str(self.settings['qr_version']),
+                                                  '--ecc', self.settings['ecc'], '--loop'])])
+        self.tmux('respawn-pane', '-k', '-t', self.pane, command)
+        self.playing = True
+
+    def capture(self):
+        return self.tmux('capture-pane', '-p', '-t', self.pane)
+
+    def close(self):
+        if self.receiver and self.receiver.poll() is None:
+            self.receiver.send_signal(signal.SIGINT)
+            try:
+                self.receiver.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.receiver.terminate()
+                self.receiver.wait(timeout=5)
+        if self.pane:
+            try:
+                self.tmux('send-keys', '-t', self.pane, 'q')
+                for _ in range(30):
+                    try:
+                        dead = self.tmux('display-message', '-p', '-t', self.pane, '#{pane_dead}')
+                        if dead == '1':
+                            break
+                    except GetError:
+                        break  # The inline pane closed after SSH exited.
+                    time.sleep(.1)
+            except GetError:
+                pass
+            finally:
+                try:
+                    self.tmux('kill-server') if self.socket else self.tmux('kill-pane', '-t', self.pane)
+                except GetError:
+                    pass
+        if self.attach:
+            try:
+                self.attach.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.attach.terminate()
+                self.attach.wait()
+        if self.temporary:
+            self.temporary.cleanup()
+
+
+def receive(binary, host, meta, job, output, args, settings):
+    transport = TerminalTransfer(host, meta, job, args.no_ui, settings)
+    log = job/'progress.log'
+    try:
+        log.write_text('')
+        transport.start(settings['fps'])
+        command = [binary, 'recv', '--source', 'tmux:' + transport.pane,
+                   '--state', str(job/'state'), '--output', str(output), '--capture-fps', str(settings['capture_fps']),
+                   '--transfer-id', meta['transfer_id'], '--max-bytes', str(args.max_bytes)]
+        if transport.socket:
+            command += ['--tmux-socket', transport.socket]
+        if args.timeout is not None:
+            command += ['--timeout', str(args.timeout)]
+        last_print = 0
+        current_fps = settings['fps']
+        progress_at = time.monotonic()
+        last_unique = 0
+        adaptive_events = []
+        with (job/'receiver.json').open('w') as stdout, log.open('a') as stderr:
+            stderr.write('Ctrl-C 中断；重跑相同命令可继续。\n')
+            stderr.flush()
+            transport.receiver = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,
+                                                  stderr=stderr, env=transport.environment())
+            while transport.receiver.poll() is None:
+                time.sleep(.2)
+                if transport.tmux('display-message', '-p', '-t', transport.pane, '#{pane_dead}') == '1':
+                    raise GetError('远端播放已退出：\n' + transport.capture()[-2500:])
+                if transport.attach and transport.attach.poll() is not None:
+                    raise GetError('已离开传输窗口，进度已保存；重跑相同命令可继续')
+                lines = progress_lines(log)
+                latest = lines[-1] if lines else ''
+                counts = re.search(r'new=(\d+)', latest)
+                if counts and int(counts[1]) > last_unique:
+                    last_unique = int(counts[1])
+                    progress_at = time.monotonic()
+                if (getattr(args, 'adaptive', True) and current_fps > 3
+                        and time.monotonic()-progress_at >= 5):
+                    current_fps = max(3, current_fps/2)
+                    adaptive_events.append(dict(fps=current_fps, reason='no_new_symbols_for_5_seconds'))
+                    print(f'采集暂时停滞，自动降至 {current_fps:g} fps，保留当前断点。', file=sys.stderr, flush=True)
+                    transport.play(current_fps)
+                    progress_at = time.monotonic()
+                if not transport.visible and not getattr(args, 'quiet', False) and time.monotonic()-last_print >= 1:
+                    if lines:
+                        print(lines[-1], file=sys.stderr, flush=True)
+                    last_print = time.monotonic()
+        text = (job/'receiver.json').read_text()
+        if not text.strip():
+            raise GetError(log.read_text(errors='replace')[-3000:])
+        result = json.loads(text)
+        result['requested_settings'] = settings
+        result['effective_fps'] = current_fps
+        result['adaptive_events'] = adaptive_events
+        save_json(job/'result.json', result)
+        if transport.receiver.returncode != 0 or not result.get('complete'):
+            if transport.receiver.returncode == 2:
+                raise GetError('接收尚未完成，进度已保存；重跑相同命令可继续')
+            raise GetError(log.read_text(errors='replace')[-3000:])
+        return result
+    finally:
+        transport.close()
+
+
+def measured_recommendation(trials):
+    """Require two fully verified transfers; use the slower run as the score."""
+    groups = {}
+    for trial in trials:
+        if trial.get('verified'):
+            key = json.dumps(trial['settings'], sort_keys=True)
+            groups.setdefault(key, []).append(trial['verified_bytes_per_second'])
+    eligible = [(min(rates), key) for key, rates in groups.items() if len(rates) >= 2]
+    if not eligible:
+        raise GetError('没有配置通过两次完整校验；未更新自动档位')
+    rate, key = max(eligible)
+    return json.loads(key), rate
+
+
+def benchmark_bytes(symbol_bytes):
+    # Each RS generation also carries a 4-byte length and a 32-byte hash.
+    return 2 * (64 * symbol_bytes - 36)
+
+
+def benchmark(host, base, binary):
+    root = base/'benchmarks'/host
+    folder = root/(time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6])
+    folder.mkdir(parents=True, mode=0o700)
+    print('测速记录：' + str(folder/'report.json'), flush=True)
+    sizes = {str(size): benchmark_bytes(size) for size in (224, 712, 2893)}
+    remote_script = '''import hashlib,json,os,pathlib,shutil,tempfile,sys
+root=pathlib.Path.home()/'.cache/tqr-get-benchmarks'
+root.mkdir(parents=True,exist_ok=True,mode=0o700)
+folder=pathlib.Path(tempfile.mkdtemp(prefix='run-',dir=root))
+seed=os.urandom(32)
+paths={}
+for size,length in json.loads(sys.argv[1]).items():
+ p=folder/('benchmark-'+str(size)+'.bin')
+ p.write_bytes(hashlib.shake_256(seed).digest(length))
+ paths[str(size)]=str(p)
+binary=pathlib.Path(shutil.which('tqr') or pathlib.Path.home()/'.local/bin/tqr')
+print(json.dumps(dict(paths=paths,sender_sha256=hashlib.sha256(binary.read_bytes()).hexdigest())))
+'''
+    remote = run(['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', host,
+                  'python3 - ' + shlex.quote(json.dumps(sizes))], input=remote_script)
+    sources = json.loads(remote.splitlines()[-1])
+    trials = []
+    prepared = {}
+    report = dict(schema=1, host=host, measured_at=time.time(), receiver_sha256=binary_hash(binary),
+                  sender_sha256=sources['sender_sha256'], trials=trials,
+                  note='Short, incompressible two-generation transfers. Rates include SSH startup and cleanup; not a long-duration stability guarantee.')
+    save_json(folder/'report.json', report)
+
+    def trial(settings, label):
+        size = settings['symbol_bytes']
+        if size not in prepared:
+            prepared[size] = remote_prepare(host, sources['paths'][str(size)], None, False, settings, compression='none')
+        meta = prepared[size]
+        job = folder/('trial-' + str(len(trials)+1))
+        job.mkdir()
+        output = job/'received'
+        output.mkdir()
+        print(f"测速 {label}：V{settings['qr_version']}-{settings['ecc']} / {settings['fps']} fps / 采样 {settings['capture_fps']} fps", flush=True)
+        started = time.monotonic()
+        item = dict(label=label, settings=settings, verified=False, bytes=meta['manifest']['original_bytes'])
+        try:
+            options = argparse.Namespace(no_ui=True, timeout=max(45, 220/settings['fps'] + 15),
+                                         max_bytes=1073741824, quiet=True, adaptive=False)
+            result = receive(binary, host, meta, job, output, options, settings)
+            if not file_matches(output/meta['manifest']['filename'], meta['manifest']):
+                raise GetError('测速文件 SHA-256 不一致')
+            elapsed = time.monotonic()-started
+            stats = result['statistics']
+            item.update(verified=True, wall_seconds=elapsed,
+                        verified_bytes_per_second=meta['manifest']['original_bytes']/elapsed,
+                        actual_capture_fps=stats['captures']/max(stats['elapsed_seconds'], .001),
+                        unique_data_fps=stats.get('new_data_symbols', 0)/max(stats['elapsed_seconds'], .001),
+                        observed_sender_fps=stats.get('observed_sender_fps'),
+                        receiver_report=str(job/'result.json'))
+            print(f"  校验通过：{item['verified_bytes_per_second']/1000:.2f} KB/s；不同数据帧 {item['unique_data_fps']:.1f}/s", flush=True)
+        except GetError as error:
+            item['error'] = str(error)
+            partial = read_json(job/'result.json')
+            if partial:
+                stats = partial['statistics']
+                item.update(receiver_report=str(job/'result.json'), partial_statistics=stats,
+                            verified_transport_bytes=partial['status']['verified_transport_bytes'],
+                            cached_symbols=partial['status']['cached_symbols'],
+                            actual_capture_fps=stats['captures']/max(stats['elapsed_seconds'], .001),
+                            unique_data_fps=stats.get('new_data_symbols', 0)/max(stats['elapsed_seconds'], .001),
+                            observed_sender_fps=stats.get('observed_sender_fps'))
+            print('  未通过：' + str(error).splitlines()[0], flush=True)
+        trials.append(item)
+        save_json(folder/'report.json', report)
+
+    baseline = dict(SPEEDS['safe'], fps=3)
+    trial(baseline, '原 3 fps 配置')
+    for name in ('safe', 'balanced'):
+        trial(dict(SPEEDS[name]), name)
+    for geometry in ('safe', 'balanced', 'fast'):
+        for fps in (10, 20, 30, 60):
+            settings = dict(SPEEDS[geometry], fps=fps, capture_fps=120)
+            trial(settings, f'矩阵 {geometry}/{fps}')
+    valid = sorted((t for t in trials if t['verified']), key=lambda t: t['verified_bytes_per_second'], reverse=True)
+    finalists = []
+    for item in valid:
+        if item['settings'] not in finalists:
+            finalists.append(item['settings'])
+        if len(finalists) == 2:
+            break
+    for index, settings in enumerate(finalists, 1):
+        trial(settings, f'候选 {index} 复测')
+    settings, rate = measured_recommendation(trials)
+    recommendation = dict(schema=1, host=host, measured_at=time.time(), receiver_sha256=report['receiver_sha256'],
+                          sender_sha256=report['sender_sha256'], settings=settings,
+                          conservative_bytes_per_second=rate, report=str(folder/'report.json'))
+    report['recommendation'] = recommendation
+    save_json(folder/'report.json', report)
+    save_json(root/'recommended.json', recommendation)
+    print(f"自动档位已更新：V{settings['qr_version']}-{settings['ecc']} / {settings['fps']} fps，复测保守速度 {rate/1000:.2f} KB/s")
+    print('测速报告：' + str(folder/'report.json'))
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description='一条命令，通过终端二维码接收远程文件或文件夹。')
+    kiss = Path(sys.argv[0]).name == 'kiss-get'
+    parser.add_argument('source', nargs='?', help='远程路径（kiss-get）' if kiss else 'SSH别名:远程路径；测速时填 SSH 别名')
+    parser.add_argument('-o', '--output', type=Path, help='保存目录，默认 ~/Downloads/from-服务器')
+    parser.add_argument('--fresh', action='store_true', help='重新准备当前内容，不续传旧快照')
+    parser.add_argument('--speed', choices=['auto', *SPEEDS], help='auto（默认）使用有效实测推荐；其余为速度档位')
+    parser.add_argument('--list-speeds', action='store_true', help='显示速度档位')
+    parser.add_argument('--benchmark', action='store_true', help='实测二维码容量 × 10/20/30/60 fps，并保存自动档位')
+    parser.add_argument('--fps', type=float, help='覆盖档位发送帧率，0.1–60')
+    parser.add_argument('--capture-fps', type=float, help='覆盖档位接收采样率，0.1–120')
+    parser.add_argument('--fixed-rate', action='store_true', help='固定发送帧率，停滞时不自动降帧')
+    parser.add_argument('--timeout', type=float, help='接收时限（秒），到时保存断点')
+    parser.add_argument('--max-bytes', type=int, default=1073741824, help='最大文件字节数，默认 1 GiB')
+    parser.add_argument('--no-ui', action='store_true', help='后台播放二维码，前台仅显示进度')
+    args = parser.parse_args()
+    args.adaptive = not args.fixed_rate
+    if args.list_speeds:
+        print('auto：使用 14 天内、与本机接收程序匹配的实测推荐；尚无推荐时用 safe')
+        for name, setting in SPEEDS.items():
+            print(f"{name:8} V{setting['qr_version']}-{setting['ecc']}  {setting['symbol_bytes']:4} B/帧  发送 {setting['fps']:2} fps  采样 {setting['capture_fps']:3} fps")
+        return 0
+    if args.fps is not None and (not math.isfinite(args.fps) or not 0.1 <= args.fps <= 60):
+        raise GetError('--fps 必须为 0.1–60')
+    if args.capture_fps is not None and (not math.isfinite(args.capture_fps) or not 0.1 <= args.capture_fps <= 120):
+        raise GetError('--capture-fps 必须为 0.1–120')
+    if args.timeout is not None and (not math.isfinite(args.timeout) or args.timeout <= 0):
+        raise GetError('--timeout 必须大于 0')
+    if args.max_bytes <= 0:
+        raise GetError('--max-bytes 必须大于 0')
+    for tool in ('ssh', 'tmux', 'tqr'):
+        if not shutil.which(tool):
+            raise GetError(f'本机缺少 {tool}，请先安装')
+    binary = shutil.which('tqr')
+    base = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state')))/'tqr-get'
+    base.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if args.benchmark:
+        host = 'wgkissshot' if kiss else args.source
+        if not host or (kiss and args.source):
+            raise GetError('测速用法：kiss-get --benchmark 或 tqr-get wgkissshot --benchmark')
+        host, _ = source_argument(host + ':benchmark')
+        benchmark_root = base/'benchmarks'/host
+        benchmark_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with (benchmark_root/'lock').open('a') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise GetError('该服务器已有测速任务正在运行') from None
+            return benchmark(host, base, binary)
+    if args.source is None:
+        parser.error('请提供远程文件路径；用 --list-speeds 查看档位，--benchmark 测速')
+    host, remote_path = source_argument(args.source, kiss)
+    output = (args.output or Path.home()/'Downloads'/('from-' + host)).expanduser().resolve()
+    key = hashlib.sha256(json.dumps([host, remote_path, str(output)]).encode()).hexdigest()
+    request = base/key
+    request.mkdir(exist_ok=True, mode=0o700)
+    with (request/'lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise GetError('同一文件已有接收任务正在运行') from None
+        previous = read_json(request/'latest.json')
+        resume = None
+        if previous and not args.fresh:
+            result = read_json(request/previous['transfer_id']/'result.json')
+            if not result or not result.get('complete'):
+                resume = previous
+        settings = choose_settings(args, host, base, resume)
+        print(('继续上次快照：' if resume else '准备：') + host + ':' + remote_path, flush=True)
+        print(f"速度档位 {settings['name']}：V{settings['qr_version']}-{settings['ecc']} / {settings['symbol_bytes']} B/帧 / 发送 {settings['fps']} fps / 采样 {settings['capture_fps']} fps", flush=True)
+        meta = remote_prepare(host, remote_path, resume, args.fresh, settings)
+        meta['transfer_settings'] = settings
+        manifest = meta['manifest']
+        if max(manifest['original_bytes'], manifest['transport_bytes']) > args.max_bytes:
+            raise GetError('文件超过接收上限，请用 --max-bytes 调整')
+        job = request/meta['transfer_id']
+        job.mkdir(exist_ok=True, mode=0o700)
+        save_json(request/'latest.json', meta)
+        save_json(job/'metadata.json', meta)
+        target = output/manifest['filename']
+        if target.exists() or target.is_symlink():
+            if file_matches(target, manifest):
+                print('文件已存在且 SHA-256 一致：' + str(target))
+                save_json(job/'result.json', dict(complete=True, output=str(target), existing_verified=True))
+                return 0
+            output = output/('transfer-' + meta['transfer_id'])
+            target = output/manifest['filename']
+            print('保留已有同名文件，本次保存到：' + str(output), flush=True)
+        output.mkdir(parents=True, exist_ok=True)
+        print(f"接收 {manifest['filename']}（{manifest['original_bytes']:,} 字节）", flush=True)
+        receive(binary, host, meta, job, output, args, settings)
+        if not file_matches(target, manifest):
+            raise GetError('接收结果未通过独立 SHA-256 检查')
+        print('完成，SHA-256 校验通过：' + str(target), flush=True)
+        if meta['source_kind'] == 'directory':
+            print('文件夹已保存为 tar 归档，可用 Finder 或 tar 解压。')
+        print('传输记录：' + str(job/'result.json'))
+    return 0
+
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt
+
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        if '--benchmark' in sys.argv:
+            print('\n测速已中断，已有测量已保存；重跑 --benchmark 可重新测速，原推荐保持不变。', file=sys.stderr)
+        else:
+            print('\n已中断；重跑相同命令可从断点继续。', file=sys.stderr)
+        sys.exit(130)
+    except (GetError, OSError, ValueError, subprocess.SubprocessError) as error:
+        print('tqr-get: ' + str(error), file=sys.stderr)
+        sys.exit(1)

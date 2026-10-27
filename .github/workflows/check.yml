@@ -19,6 +19,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y tmux ffmpeg cmake g++
       - run: cargo fmt --check
       - run: cargo test --locked
+      - name: Test one-command receiver
+        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p test_tqr_get.py -v
       - run: cargo test --locked --no-default-features
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1
@@ -38,6 +40,9 @@ jobs:
       - run: brew install tmux ffmpeg cmake
       - run: cargo test --locked
         if: github.event_name != 'release'
+      - name: Test one-command receiver
+        if: github.event_name != 'release'
+        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p test_tqr_get.py -v
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
         if: github.event_name != 'release'
       - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1

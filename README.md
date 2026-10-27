@@ -31,6 +31,21 @@ cargo build --release --locked --no-default-features --target-dir target/sender
 
 在 [私有发行页](https://github.com/Chivier/shadow-ink/releases) 下载 Linux 接收包、A 端静态发送包或 Mac 包。Mac 推荐 `tqr-0.1.0-macos-universal2.tar.gz`，包含 Apple Silicon 和 Intel 的完整功能；安装和本机自测见 [docs/MACOS.md](docs/MACOS.md)。交叉构建检查与 macOS CI 原生运行结果分开记录，见仓库 Actions 和发行说明。
 
+## 一条命令从服务器接收
+
+Mac 安装完整 `tqr` 后，安装一键包装工具：
+
+```bash
+sh scripts/install-get.sh
+kiss-get /home/chivier/results.csv
+kiss-get /home/chivier/results.csv --speed fast
+kiss-get --benchmark
+# 其他服务器：
+tqr-get server-a:/home/user/results.csv
+```
+
+自动准备、播放二维码、接收和校验；中断后重跑相同命令即可续传。提供 `safe`、`balanced`、`fast`、`turbo` 速度档位，默认 `auto` 使用本机实测推荐。支持文件夹，默认保存到 `~/Downloads/from-服务器/`。详见 [一键接收说明](docs/GET.md)。
+
 ## 你的左右分屏操作流程
 
 先在**笔记本本地**启动 tmux，左右分屏。用 `tqr panes` 查找左侧 pane ID，例如 `%0`。这些命令的 `tqr` 指对应机器上已准备好的二进制。
