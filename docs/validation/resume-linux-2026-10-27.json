@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-27",
+  "scope": "Linux local real tmux/PTY; SSH network hop replaced with local command in CLI tests. Actual remote network and native macOS were not tested.",
+  "binary_sha256": "e493612552c2c993d4c7a2ef8fa38a42896a51df4916fb4030a278f0bbd1e144",
+  "checks": {
+    "source_sha256": "cd65b2178a618a7346da63479e535be3f408edd5504bc5d0cd42012ba52088f2",
+    "all_passed": true,
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.176,
+        "log": "gate-1.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 16.962,
+        "log": "gate-2.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features"
+        ],
+        "exit_code": 0,
+        "seconds": 2.443,
+        "log": "gate-3.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--all-features",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.635,
+        "log": "gate-4.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--no-default-features",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.139,
+        "log": "gate-5.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "build",
+          "--release",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 0.113,
+        "log": "gate-6.log"
+      },
+      {
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_*.py",
+          "-v"
+        ],
+        "exit_code": 0,
+        "seconds": 15.03,
+        "log": "gate-7.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "acceptance",
+          "--",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "seconds": 19.037,
+        "log": "gate-8.log"
+      }
+    ]
+  },
+  "cli_tests": "test_existing_unrelated_alias_is_preserved (test_get.Installer.test_existing_unrelated_alias_is_preserved) ... ok\ntest_install_is_repeatable_and_alias_uses_remote_path_help (test_get.Installer.test_install_is_repeatable_and_alias_uses_remote_path_help) ... ok\ntest_benchmark_samples_are_two_real_rs_generations (test_get.RemotePreparation.test_benchmark_samples_are_two_real_rs_generations) ... ok\ntest_different_capacities_do_not_reuse_the_wrong_bundle (test_get.RemotePreparation.test_different_capacities_do_not_reuse_the_wrong_bundle) ... ok\ntest_directory_snapshot_and_changed_child (test_get.RemotePreparation.test_directory_snapshot_and_changed_child) ... ok\ntest_literal_shell_metacharacters_and_unicode (test_get.RemotePreparation.test_literal_shell_metacharacters_and_unicode) ... ok\ntest_missing_snapshot_requires_explicit_fresh (test_get.RemotePreparation.test_missing_snapshot_requires_explicit_fresh) ... ok\ntest_relative_and_tilde_paths_use_remote_home (test_get.RemotePreparation.test_relative_and_tilde_paths_use_remote_home) ... ok\ntest_self_archiving_and_special_files_are_rejected (test_get.RemotePreparation.test_self_archiving_and_special_files_are_rejected) ... ok\ntest_stable_cache_and_explicit_new_snapshot (test_get.RemotePreparation.test_stable_cache_and_explicit_new_snapshot) ... ok\ntest_host_option_and_shell_injection_rejected (test_get.SourceArguments.test_host_option_and_shell_injection_rejected) ... ok\ntest_spaces_tilde_and_metacharacters_are_literal_paths (test_get.SourceArguments.test_spaces_tilde_and_metacharacters_are_literal_paths) ... ok\ntest_auto_uses_recent_matching_measurement_only (test_get.SpeedProfiles.test_auto_uses_recent_matching_measurement_only) ... ok\ntest_character_default_and_explicit_backend_on_resume (test_get.SpeedProfiles.test_character_default_and_explicit_backend_on_resume) ... ok\ntest_geometry_covers_maximum_qr (test_get.SpeedProfiles.test_geometry_covers_maximum_qr) ... ok\ntest_recommendation_requires_two_verified_runs_and_uses_slower_result (test_get.SpeedProfiles.test_recommendation_requires_two_verified_runs_and_uses_slower_result) ... ok\ntest_resume_preserves_capacity_and_requires_fresh_for_changes (test_get.SpeedProfiles.test_resume_preserves_capacity_and_requires_fresh_for_changes) ... ok\ntest_explicit_resume_requires_record_and_conflicts_with_fresh (test_shadow_ink_cli.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (test_shadow_ink_cli.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (test_shadow_ink_cli.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (test_shadow_ink_cli.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (test_shadow_ink_cli.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 14.962s\n\nOK\n",
+  "resume_cases": [
+    "timeout then rerun the same command",
+    "SIGINT after completed groups, then explicit --resume",
+    "corrupt one completed .part group before resuming",
+    "change the remote source after interruption while retaining the original snapshot",
+    "verify sender --only-generations matches revalidated missing groups and excludes intact completed groups",
+    "verify restored bytes equal the original snapshot",
+    "reject --resume without a saved request before SSH",
+    "reject --resume combined with --fresh"
+  ]
+}

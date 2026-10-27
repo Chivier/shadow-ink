@@ -38,7 +38,7 @@ pub fn panes(socket: Option<&Path>) -> Result<String> {
 pub fn pane_size(pane: &str, socket: Option<&Path>) -> Result<(u16, u16)> {
     ensure!(
         pane.starts_with('%') && pane.len() > 1 && pane[1..].bytes().all(|b| b.is_ascii_digit()),
-        "use an explicit pane ID, such as tmux:%3 (see tqr panes)"
+        "use an explicit pane ID, such as tmux:%3 (see shadow-ink panes)"
     );
     let out = tmux(socket)
         .args([
@@ -69,7 +69,7 @@ pub fn pane_size(pane: &str, socket: Option<&Path>) -> Result<(u16, u16)> {
 pub fn capture_tmux(pane: &str, socket: Option<&Path>, index: u64) -> Result<Option<Capture>> {
     ensure!(
         pane.starts_with('%') && pane.len() > 1 && pane[1..].bytes().all(|b| b.is_ascii_digit()),
-        "use an explicit pane ID, such as tmux:%3 (see tqr panes)"
+        "use an explicit pane ID, such as tmux:%3 (see shadow-ink panes)"
     );
     // Queue geometry/capture/geometry in one tmux client. Preserve the resize
     // guard without spawning three clients for every sample.
@@ -479,6 +479,106 @@ impl Roi {
             "ROI is outside video frame"
         );
         Ok(image::imageops::crop_imm(img, self.x, self.y, self.width, self.height).to_image())
+    }
+}
+
+/// Plain text sampling accepts intact rows even while other rows are redrawn.
+pub fn capture_text(pane: &str, socket: Option<&Path>) -> Result<Vec<Result<Vec<u8>>>> {
+    let out = tmux(socket)
+        .args(["capture-pane", "-p", "-t", pane])
+        .output()?;
+    ensure!(
+        out.status.success(),
+        "tmux text capture failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    ensure!(
+        out.stdout.len() <= 4 * 1024 * 1024,
+        "tmux capture too large"
+    );
+    Ok(out
+        .stdout
+        .split(|&b| b == b'\n')
+        .filter_map(crate::text::decode_line)
+        .collect())
+}
+
+#[cfg(unix)]
+pub struct TextPipe {
+    fifo: fs::File,
+    parser: crate::text::Lines,
+    pane: String,
+    socket: Option<std::path::PathBuf>,
+    _directory: tempfile::TempDir,
+}
+#[cfg(unix)]
+impl TextPipe {
+    pub fn open(pane: &str, socket: Option<&Path>) -> Result<Self> {
+        use std::os::unix::{ffi::OsStrExt, fs::OpenOptionsExt};
+        pane_size(pane, socket)?;
+        let out = tmux(socket)
+            .args(["display-message", "-p", "-t", pane, "#{pane_pipe}"])
+            .output()?;
+        ensure!(
+            out.status.success() && out.stdout.starts_with(b"0"),
+            "pane already has a pipe; refusing to replace it"
+        );
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("text.fifo");
+        let name = std::ffi::CString::new(path.as_os_str().as_bytes())?;
+        // SAFETY: name is a live NUL-terminated path in our private directory.
+        ensure!(
+            unsafe { libc::mkfifo(name.as_ptr(), 0o600) } == 0,
+            "create text FIFO: {}",
+            std::io::Error::last_os_error()
+        );
+        // RDWR keeps the FIFO alive before tmux starts its writer. Nonblocking
+        // reads keep timeouts and Ctrl-C responsive even if SSH stops producing.
+        let fifo = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(libc::O_NONBLOCK)
+            .open(&path)?;
+        let command = format!(
+            "exec cat > '{}'",
+            path.to_string_lossy().replace('\'', "'\\''")
+        );
+        let out = tmux(socket)
+            .args(["pipe-pane", "-O", "-o", "-t", pane, &command])
+            .output()?;
+        ensure!(
+            out.status.success(),
+            "tmux pipe-pane failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        Ok(Self {
+            fifo,
+            parser: crate::text::Lines::default(),
+            pane: pane.to_owned(),
+            socket: socket.map(Path::to_path_buf),
+            _directory: directory,
+        })
+    }
+    pub fn packets(&mut self) -> Result<Vec<Result<Vec<u8>>>> {
+        let mut packets = Vec::new();
+        let mut bytes = [0; 65536];
+        for _ in 0..16 {
+            match self.fifo.read(&mut bytes) {
+                Ok(0) => break,
+                Ok(n) => packets.extend(self.parser.push(&bytes[..n])),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(packets)
+    }
+}
+#[cfg(unix)]
+impl Drop for TextPipe {
+    fn drop(&mut self) {
+        let _ = tmux(self.socket.as_deref())
+            .args(["pipe-pane", "-t", &self.pane])
+            .output();
     }
 }
 

@@ -9,3 +9,5 @@ pub mod sender;
 pub mod sources;
 #[cfg(feature = "receiver")]
 pub mod store;
+
+pub mod text;

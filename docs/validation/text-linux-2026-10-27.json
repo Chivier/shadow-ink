@@ -1,0 +1,211 @@
+{
+  "date": "2026-10-27",
+  "platform": "Linux x86_64",
+  "scope": "Local real tmux PTYs; CLI orchestration uses a local SSH stand-in. Actual remote SSH, macOS text backend and four-hour stability remain unverified.",
+  "pipe": {
+    "scope": "local real tmux PTY; no SSH/network or four-hour stability claim",
+    "backend": "pipe",
+    "bytes": 67108864,
+    "sha256": "8f90815292b2a75e299422d3cf6b38515f76bc799cd5ffeba5f8fa248c5c7865",
+    "verified": true,
+    "wall_seconds": 84.6136534968391,
+    "verified_bytes_per_second": 793120.982567039,
+    "receiver": {
+      "complete": true,
+      "interrupted": false,
+      "output": "/tmp/shadow-ink-bench-hlbx5c77/received/random.bin",
+      "status": {
+        "transfer_id": "a15b73f134e0b47f4f64ae8c208c51cd",
+        "filename": "random.bin",
+        "completed_generations": 363,
+        "total_generations": 363,
+        "verified_transport_bytes": 67108864,
+        "cached_symbols": 0,
+        "missing_generations": "",
+        "finalized": true,
+        "output": "/tmp/shadow-ink-bench-hlbx5c77/received/random.bin"
+      },
+      "statistics": {
+        "captures": 7877,
+        "qr_codes": 0,
+        "text_lines": 36592,
+        "valid_frames": 36585,
+        "new_symbols": 23233,
+        "new_data_symbols": 23232,
+        "new_metadata_symbols": 1,
+        "observed_sender_fps": 434.08031982046214,
+        "duplicate_symbols": 13352,
+        "repeated_captures": 0,
+        "unstable_captures": 0,
+        "crc_failures": 0,
+        "rejected_frames": 0,
+        "conflicting_symbols": 0,
+        "foreign_frames": 0,
+        "observed_forward_sequence_gaps": 0,
+        "last_capture_index": null,
+        "last_video_pts": null,
+        "elapsed_seconds": 84.542878079,
+        "recovered_bytes_per_second": 793784.9470571724
+      }
+    },
+    "binary_sha256": "89e32abb3f93d3d94eebefad1f8ce2ada11f5b749fde5ba8d4b3a5d0312447c5"
+  },
+  "earlier_screen_trial": {
+    "scope": "local real tmux PTY; no SSH/network or four-hour stability claim",
+    "backend": "text",
+    "bytes": 2097152,
+    "sha256": "7708638afb10d7fe13df01bc1f5eb14315a836640551f09c8bd8e8d968411d23",
+    "verified": true,
+    "wall_seconds": 14.904728837311268,
+    "verified_bytes_per_second": 140703.80098094523,
+    "receiver": {
+      "complete": true,
+      "interrupted": false,
+      "output": "/tmp/shadow-ink-bench-ecmgbjgp/received/random.bin",
+      "status": {
+        "transfer_id": "00b874cd5096031df650af0d2de95425",
+        "filename": "random.bin",
+        "completed_generations": 200,
+        "total_generations": 200,
+        "verified_transport_bytes": 2097152,
+        "cached_symbols": 0,
+        "missing_generations": "",
+        "finalized": true,
+        "output": "/tmp/shadow-ink-bench-ecmgbjgp/received/random.bin"
+      },
+      "statistics": {
+        "captures": 639,
+        "qr_codes": 0,
+        "text_lines": 75350,
+        "valid_frames": 75273,
+        "new_symbols": 12803,
+        "new_data_symbols": 12800,
+        "new_metadata_symbols": 3,
+        "observed_sender_fps": 3274.0452857673877,
+        "duplicate_symbols": 62470,
+        "repeated_captures": 0,
+        "unstable_captures": 0,
+        "crc_failures": 6,
+        "rejected_frames": 1,
+        "conflicting_symbols": 0,
+        "foreign_frames": 0,
+        "observed_forward_sequence_gaps": 16823,
+        "last_capture_index": null,
+        "last_video_pts": null,
+        "elapsed_seconds": 14.890490968,
+        "recovered_bytes_per_second": 140838.33800422208
+      }
+    },
+    "binary_sha256": "fee8435b9386922d6fd074e3cba37d927e0cb0204cb3477900cb3aa7f5031476"
+  },
+  "checks": {
+    "source_sha256": "1a26005eafd75c75c6a90bb85ea3460af5bedc47b629a15dd4b269461b492245",
+    "all_passed": true,
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.161,
+        "log": "gate-1.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 15.283,
+        "log": "gate-2.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features"
+        ],
+        "exit_code": 0,
+        "seconds": 3.06,
+        "log": "gate-3.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--all-features",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.644,
+        "log": "gate-4.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--no-default-features",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.277,
+        "log": "gate-5.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "build",
+          "--release",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 5.076,
+        "log": "gate-6.log"
+      },
+      {
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_*.py",
+          "-v"
+        ],
+        "exit_code": 0,
+        "seconds": 10.06,
+        "log": "gate-7.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "acceptance",
+          "--",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "seconds": 18.058,
+        "log": "gate-8.log"
+      }
+    ]
+  }
+}

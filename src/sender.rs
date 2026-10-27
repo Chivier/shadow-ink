@@ -179,9 +179,9 @@ impl Schedule {
     }
 }
 
-struct TerminalGuard;
+pub(crate) struct TerminalGuard;
 impl TerminalGuard {
-    fn enter() -> Result<Self> {
+    pub(crate) fn enter() -> Result<Self> {
         terminal::enable_raw_mode()?;
         let guard = Self;
         execute!(io::stdout(), EnterAlternateScreen, Hide)?;
@@ -308,6 +308,80 @@ pub fn preview(version: u8, ecc: &str, stop: Arc<AtomicBool>) -> Result<()> {
     while !stop.load(Ordering::Relaxed) {
         if input(Duration::from_millis(100), &mut paused)? {
             break;
+        }
+    }
+    Ok(())
+}
+
+/// Text screen: one independently verifiable packet per row. Stream mode uses
+/// longer logical lines; tmux pipe-pane observes them before terminal wrapping.
+pub fn send_text(
+    path: &Path,
+    fps: f64,
+    stream: bool,
+    only: Option<&str>,
+    rounds: Option<u64>,
+    stop: Arc<AtomicBool>,
+) -> Result<()> {
+    ensure!(
+        fps.is_finite() && (0.1..=60.0).contains(&fps),
+        "fps must be 0.1..=60"
+    );
+    ensure!(io::stdout().is_terminal(), "send requires a real terminal");
+    let bundle = Bundle::open(path)?;
+    let width = crate::text::PREFIX.len()
+        + (usize::from(bundle.manifest.symbol_bytes) + crate::protocol::OVERHEAD).div_ceil(3) * 4;
+    if !stream {
+        let (cols, rows) = terminal::size()?;
+        ensure!(width < usize::from(cols) && rows >= 4, "text packet needs at least {} columns and 4 rows; prepare with smaller --symbol-bytes or use text-stream + pipe", width + 1);
+    }
+    let mut schedule = Schedule::new(bundle, only, rounds, None)?;
+    let _guard = TerminalGuard::enter()?;
+    let mut paused = false;
+    let hold = Duration::from_secs_f64(1.0 / fps);
+    let mut stdout = io::stdout().lock();
+    while !stop.load(Ordering::Relaxed) {
+        let (cols, rows) = terminal::size()?;
+        if paused || (!stream && (width >= usize::from(cols) || rows < 4)) {
+            if input(Duration::from_millis(100), &mut paused)? {
+                break;
+            }
+            continue;
+        }
+        let mut screen = if stream {
+            String::new()
+        } else {
+            "\x1b[H".to_owned()
+        };
+        let count = if stream { 16 } else { usize::from(rows - 2) };
+        for row in 0..count {
+            let Some(frame) = schedule.next_frame()? else {
+                stdout.write_all(screen.as_bytes())?;
+                stdout.flush()?;
+                return Ok(());
+            };
+            if !stream {
+                screen.push_str(&format!("\x1b[{};1H", row + 1));
+            }
+            screen.push_str(&crate::text::line(&frame)?);
+            if stream {
+                screen.push_str("\r\n");
+            } else {
+                screen.push_str("\x1b[K");
+            }
+        }
+        stdout.write_all(screen.as_bytes())?;
+        stdout.flush()?;
+        let deadline = Instant::now() + hold;
+        while Instant::now() < deadline && !stop.load(Ordering::Relaxed) {
+            if input(
+                deadline
+                    .saturating_duration_since(Instant::now())
+                    .min(Duration::from_millis(100)),
+                &mut paused,
+            )? {
+                return Ok(());
+            }
         }
     }
     Ok(())

@@ -1,6 +1,6 @@
 # Build and deployment
 
-Runtime payload transfer is restricted to terminal QR playback. Installing prebuilt tools on A is a separate prerequisite; these instructions do not introduce an alternate outgoing file channel.
+Runtime payload transfer uses terminal text or QR playback. The one-command entry point embeds its Python orchestration helper; Python 3, SSH and tmux are required locally, with Python 3 and a current shadow-ink sender on the remote host. Installing prebuilt tools on A is a separate prerequisite; these instructions do not introduce an alternate outgoing file channel.
 
 ## Native builds
 
@@ -13,7 +13,7 @@ python3 scripts/verify.py
 scripts/package.sh
 ```
 
-`dist/tqr-<version>-<os>-<arch>/tqr` is the full binary; `tqr-send` is the sender-only binary with the same prepare/send/doctor/inspect CLI. The archive includes README, protocol, build instructions, license and checksums. On A, invoke `./tqr-send ...`, or rename it to `tqr` when provisioning.
+`dist/shadow-ink-<version>-<os>-<arch>/shadow-ink` is the full binary; `shadow-ink-send` is the sender-only binary with the same prepare/send/doctor/inspect CLI. The archive includes README, protocol, build instructions, license and checksums. On A, invoke `./shadow-ink-send ...`, or rename it to `shadow-ink` when provisioning.
 
 Native Linux GNU builds require the platform's compatible libc. For isolated Linux server deployments use a musl sender build, targeting x86_64 or aarch64 as appropriate. No receiver/C++ runtime is needed on A.
 

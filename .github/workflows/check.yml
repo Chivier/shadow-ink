@@ -1,26 +1,35 @@
 name: check
 on:
   push:
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag whose uploaded packages should be tested
+        required: true
+        type: string
   release:
     types: [published]
 permissions:
   contents: read
 jobs:
   linux:
-    if: github.event_name != 'release'
+    if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
           components: rustfmt, clippy
       - run: sudo apt-get update && sudo apt-get install -y tmux ffmpeg cmake g++
       - run: cargo fmt --check
       - run: cargo test --locked
       - name: Test one-command receiver
-        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p test_tqr_get.py -v
+        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p 'test_*.py' -v
       - run: cargo test --locked --no-default-features
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1
@@ -33,43 +42,45 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
           components: rustfmt, clippy
       - run: brew install tmux ffmpeg cmake
       - run: cargo test --locked
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Test one-command receiver
-        if: github.event_name != 'release'
-        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p test_tqr_get.py -v
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        run: PATH="$PWD/target/debug:$PATH" python3 -m unittest discover -s tests -p 'test_*.py' -v
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: cargo test --locked --test acceptance -- --ignored --nocapture --test-threads=1
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Verify published macOS binaries on native hardware
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TQR_RELEASE_TAG: ${{ github.event.release.tag_name }}
+          TQR_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/tqr-release"
-          gh release download "$TQR_RELEASE_TAG" --pattern '*macos-*.tar.gz' --dir "$RUNNER_TEMP/tqr-release"
+          mkdir -p "$RUNNER_TEMP/shadow-ink-release"
+          gh release download "$TQR_RELEASE_TAG" --pattern '*macos-*.tar.gz' --dir "$RUNNER_TEMP/shadow-ink-release"
           case "$(uname -m)" in
             arm64) native_arch=aarch64 ;;
             x86_64) native_arch=x86_64 ;;
             *) exit 1 ;;
           esac
           for arch in universal2 "$native_arch"; do
-            archive=$(find "$RUNNER_TEMP/tqr-release" -name "*macos-$arch.tar.gz" -print -quit)
-            tar -xzf "$archive" -C "$RUNNER_TEMP/tqr-release"
+            archive=$(find "$RUNNER_TEMP/shadow-ink-release" -name "*macos-$arch.tar.gz" -print -quit)
+            tar -xzf "$archive" -C "$RUNNER_TEMP/shadow-ink-release"
             package_dir=${archive%.tar.gz}
             python3 "$package_dir/selftest.py" --report "$RUNNER_TEMP/macos-$arch-native.json"
           done
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'release' && always()
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && always()
         with:
           name: macos-native-${{ matrix.os }}
           path: ${{ runner.temp }}/macos-*-native.json

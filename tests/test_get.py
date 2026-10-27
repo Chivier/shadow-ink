@@ -1,4 +1,4 @@
-"""Wrapper regressions; uses the real local tqr to prepare temporary snapshots."""
+"""Wrapper regressions; uses the real local shadow-ink to prepare temporary snapshots."""
 import importlib.machinery
 import importlib.util
 import json
@@ -13,8 +13,8 @@ from unittest.mock import patch
 from argparse import Namespace
 import time
 
-SCRIPT = Path(__file__).resolve().parents[1]/'scripts/tqr-get'
-LOADER = importlib.machinery.SourceFileLoader('tqr_get', str(SCRIPT))
+SCRIPT = Path(__file__).resolve().parents[1]/'scripts/shadow-ink-get'
+LOADER = importlib.machinery.SourceFileLoader('shadow_ink_get', str(SCRIPT))
 SPEC = importlib.util.spec_from_loader(LOADER.name, LOADER)
 MODULE = importlib.util.module_from_spec(SPEC)
 LOADER.exec_module(MODULE)
@@ -56,7 +56,7 @@ class SpeedProfiles(unittest.TestCase):
     def test_auto_uses_recent_matching_measurement_only(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
-            binary = base/'tqr'
+            binary = base/'shadow-ink'
             binary.write_bytes(b'version one')
             target = base/'benchmarks/host/recommended.json'
             target.parent.mkdir(parents=True)
@@ -72,6 +72,21 @@ class SpeedProfiles(unittest.TestCase):
                 MODULE.save_json(target, measured)
                 self.assertEqual(MODULE.choose_settings(self.options(), 'host', base)['symbol_bytes'], 224)
 
+    def test_character_default_and_explicit_backend_on_resume(self):
+        args = self.options()
+        args.backend = None
+        with tempfile.TemporaryDirectory() as temp:
+            chosen = MODULE.choose_settings(args, 'host', Path(temp))
+            self.assertEqual(chosen['backend'], 'pipe')
+            previous = dict(manifest=dict(symbol_bytes=2893), transfer_settings=chosen)
+            self.assertEqual(MODULE.choose_settings(args, 'host', Path(temp), previous)['backend'], 'pipe')
+            args.backend = 'text'
+            with self.assertRaises(MODULE.GetError):
+                MODULE.choose_settings(args, 'host', Path(temp), previous)
+            args.backend = 'qr'
+            args.speed = 'fast'
+            self.assertNotIn('backend', MODULE.choose_settings(args, 'host', Path(temp), previous))
+
     def test_recommendation_requires_two_verified_runs_and_uses_slower_result(self):
         trials = [dict(settings=dict(fps=60), verified=True, verified_bytes_per_second=1000),
                   dict(settings=dict(fps=60), verified=True, verified_bytes_per_second=100),
@@ -85,21 +100,21 @@ class SpeedProfiles(unittest.TestCase):
 
 class Installer(unittest.TestCase):
     def test_install_is_repeatable_and_alias_uses_remote_path_help(self):
-        with tempfile.TemporaryDirectory(prefix='tqr-get-install-') as temp:
+        with tempfile.TemporaryDirectory(prefix='shadow-ink-get-install-') as temp:
             destination = Path(temp)/'bin'
             env = dict(os.environ, TQR_GET_BIN_DIR=str(destination))
             installer = SCRIPT.parent/'install-get.sh'
             for _ in range(2):
                 result = subprocess.run(['sh', str(installer)], env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((destination/'tqr-get').read_bytes(), SCRIPT.read_bytes())
-            self.assertEqual(os.readlink(destination/'kiss-get'), 'tqr-get')
+            self.assertEqual((destination/'shadow-ink-get').read_bytes(), SCRIPT.read_bytes())
+            self.assertEqual(os.readlink(destination/'kiss-get'), 'shadow-ink-get')
             help_result = subprocess.run([str(destination/'kiss-get'), '--help'], capture_output=True, text=True)
             self.assertEqual(help_result.returncode, 0, help_result.stderr)
             self.assertIn('远程路径（kiss-get）', help_result.stdout)
 
     def test_existing_unrelated_alias_is_preserved(self):
-        with tempfile.TemporaryDirectory(prefix='tqr-get-install-') as temp:
+        with tempfile.TemporaryDirectory(prefix='shadow-ink-get-install-') as temp:
             destination = Path(temp)
             alias = destination/'kiss-get'
             alias.write_text('keep this original')
@@ -107,13 +122,13 @@ class Installer(unittest.TestCase):
                                     env=dict(os.environ, TQR_GET_BIN_DIR=temp), capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(alias.read_text(), 'keep this original')
-            self.assertFalse((destination/'tqr-get').exists())
+            self.assertFalse((destination/'shadow-ink-get').exists())
 
 
-@unittest.skipUnless(shutil.which('tqr'), 'install the full tqr binary first')
+@unittest.skipUnless(shutil.which('shadow-ink'), 'install the full shadow-ink binary first')
 class RemotePreparation(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='tqr-get-regression-')
+        self.temp = tempfile.TemporaryDirectory(prefix='shadow-ink-get-regression-')
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
         self.env = dict(os.environ, HOME=str(self.home))
@@ -160,7 +175,7 @@ class RemotePreparation(unittest.TestCase):
             source = self.home/f'benchmark-{size}.bin'
             source.write_bytes(b'x'*MODULE.benchmark_bytes(size))
             meta = self.prepare(source, symbol_bytes=size, compression='none')
-            inspected = subprocess.run(['tqr', 'inspect', meta['remote_bundle']],
+            inspected = subprocess.run(['shadow-ink', 'inspect', meta['remote_bundle']],
                                        capture_output=True, text=True, check=True)
             self.assertEqual(json.loads(inspected.stdout)['generations'], 2)
 
@@ -194,7 +209,7 @@ class RemotePreparation(unittest.TestCase):
 
     def test_self_archiving_and_special_files_are_rejected(self):
         result = self.prepare(self.home, success=False)
-        self.assertIn('contains the tqr-get cache', result.stderr)
+        self.assertIn('contains the shadow-ink-get cache', result.stderr)
         folder = self.home/'folder'
         folder.mkdir()
         os.mkfifo(folder/'fifo')

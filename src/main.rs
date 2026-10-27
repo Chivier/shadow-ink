@@ -1,5 +1,9 @@
 use anyhow::{ensure, Context, Result};
 use clap::{Parser, Subcommand};
+use shadow_ink::{
+    bundle::{self, Bundle},
+    render, sender,
+};
 use std::{
     io::IsTerminal,
     path::PathBuf,
@@ -8,16 +12,13 @@ use std::{
         Arc,
     },
 };
-use tqr::{
-    bundle::{self, Bundle},
-    render, sender,
-};
 
 #[derive(Parser)]
 #[command(
-    name = "tqr",
+    name = "shadow-ink",
     version,
-    about = "Resumable terminal QR transfer. File content travels only through TUI QR playback."
+    after_help = "Remote file: shadow-ink SERVER FILEPATH [-o DIRECTORY]\nOptions: shadow-ink get --help",
+    about = "Resumable terminal text and QR transfer. Quick start: shadow-ink SERVER FILEPATH"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -38,9 +39,11 @@ enum Cmd {
         #[arg(long, default_value = "rs:64:96")]
         fec: String,
     },
-    /// Play QR frames in the current terminal. q quits; space pauses.
+    /// Play text or QR frames in the current terminal. q quits; space pauses.
     Send {
         bundle: PathBuf,
+        #[arg(long, default_value = "qr", value_parser = ["qr", "text", "text-stream"])]
+        backend: String,
         #[arg(long, default_value_t = 12)]
         qr_version: u8,
         #[arg(long,default_value="M",value_parser=["L","M","Q","H"])]
@@ -95,7 +98,7 @@ enum Cmd {
         #[arg(long)]
         transfer_id: Option<String>,
         #[arg(long)]
-        roi: Option<tqr::sources::Roi>,
+        roi: Option<shadow_ink::sources::Roi>,
     },
     #[cfg(feature = "receiver")]
     /// Show persisted progress, missing generation ranges and reception statistics.
@@ -124,12 +127,52 @@ fn main() {
     match run() {
         Ok(code) => std::process::exit(code),
         Err(e) => {
-            eprintln!("tqr: {e:#}");
+            eprintln!("shadow-ink: {e:#}");
             std::process::exit(1);
         }
     }
 }
 fn run() -> Result<i32> {
+    // Keep the installed executable self-contained: the orchestration helper is
+    // embedded, and calls this exact binary for the local receiving process.
+    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if let Some(first) = args.first().and_then(|a| a.to_str()) {
+        let commands = [
+            "prepare",
+            "send",
+            "inspect",
+            "doctor",
+            "recv",
+            "status",
+            "panes",
+            "calibrate",
+            "help",
+        ];
+        if first == "get" || (!first.starts_with('-') && !commands.contains(&first)) {
+            #[cfg(not(feature = "receiver"))]
+            anyhow::bail!("remote reception requires the full receiver build");
+            #[cfg(feature = "receiver")]
+            {
+                let mut command = std::process::Command::new("python3");
+                command
+                    .arg("-c")
+                    .arg(include_str!("../scripts/shadow-ink-get"))
+                    .args(if first == "get" {
+                        &args[1..]
+                    } else {
+                        &args[..]
+                    })
+                    .env("SHADOW_INK_BIN", std::env::current_exe()?);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::CommandExt;
+                    return Err(command.exec()).context("start Python 3 receiver helper");
+                }
+                #[cfg(not(unix))]
+                return Ok(command.status()?.code().unwrap_or(1));
+            }
+        }
+    }
     let cli = Cli::parse();
     let stop = Arc::new(AtomicBool::new(false));
     let signal = stop.clone();
@@ -154,27 +197,41 @@ fn run() -> Result<i32> {
         }
         Cmd::Send {
             bundle,
+            backend,
             qr_version,
             ecc,
             fps,
             loop_forever: _,
             rounds,
             only_generations,
-        } => sender::send(
-            &bundle,
-            qr_version,
-            &ecc,
-            fps,
-            only_generations.as_deref(),
-            rounds,
-            stop,
-        )?,
+        } => {
+            if backend == "qr" {
+                sender::send(
+                    &bundle,
+                    qr_version,
+                    &ecc,
+                    fps,
+                    only_generations.as_deref(),
+                    rounds,
+                    stop,
+                )?;
+            } else {
+                sender::send_text(
+                    &bundle,
+                    fps,
+                    backend == "text-stream",
+                    only_generations.as_deref(),
+                    rounds,
+                    stop,
+                )?;
+            }
+        }
         Cmd::Inspect { bundle } => {
             let b = Bundle::open(&bundle)?;
             println!(
                 "{}",
                 serde_json::to_string_pretty(
-                    &serde_json::json!({"transfer_id":hex::encode(b.id),"manifest":b.manifest,"generations":b.manifest.generations(),"packet_bytes":b.manifest.symbol_bytes as usize+tqr::protocol::OVERHEAD})
+                    &serde_json::json!({"transfer_id":hex::encode(b.id),"manifest":b.manifest,"generations":b.manifest.generations(),"packet_bytes":b.manifest.symbol_bytes as usize+shadow_ink::protocol::OVERHEAD})
                 )?
             );
         }
@@ -196,7 +253,10 @@ fn run() -> Result<i32> {
                     let pane = src
                         .strip_prefix("tmux:")
                         .context("doctor source must be tmux:%ID")?;
-                    dimensions = Some(tqr::sources::pane_size(pane, tmux_socket.as_deref())?);
+                    dimensions = Some(shadow_ink::sources::pane_size(
+                        pane,
+                        tmux_socket.as_deref(),
+                    )?);
                 }
                 #[cfg(not(feature = "receiver"))]
                 {
@@ -276,10 +336,10 @@ fn run() -> Result<i32> {
         } => {
             let transfer = transfer_id
                 .as_deref()
-                .map(tqr::receiver::transfer_id)
+                .map(shadow_ink::receiver::transfer_id)
                 .transpose()?;
-            let report = tqr::receiver::receive(
-                tqr::receiver::Options {
+            let report = shadow_ink::receiver::receive(
+                shadow_ink::receiver::Options {
                     source: &source,
                     state: &state,
                     output: &output,
@@ -300,10 +360,12 @@ fn run() -> Result<i32> {
         #[cfg(feature = "receiver")]
         Cmd::Status { state } => println!(
             "{}",
-            serde_json::to_string_pretty(&tqr::receiver::status(&state)?)?
+            serde_json::to_string_pretty(&shadow_ink::receiver::status(&state)?)?
         ),
         #[cfg(feature = "receiver")]
-        Cmd::Panes { tmux_socket } => print!("{}", tqr::sources::panes(tmux_socket.as_deref())?),
+        Cmd::Panes { tmux_socket } => {
+            print!("{}", shadow_ink::sources::panes(tmux_socket.as_deref())?)
+        }
         #[cfg(feature = "receiver")]
         Cmd::Calibrate {
             source,
@@ -312,7 +374,7 @@ fn run() -> Result<i32> {
             capture_fps,
         } => println!(
             "{}",
-            serde_json::to_string_pretty(&tqr::receiver::calibrate(
+            serde_json::to_string_pretty(&shadow_ink::receiver::calibrate(
                 &source,
                 tmux_socket.as_deref(),
                 seconds,

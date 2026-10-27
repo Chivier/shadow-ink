@@ -98,3 +98,35 @@ Finalization checks the complete transport length/hash, streams optional zstd de
 `send` verifies exact package length and transport SHA-256 before playback. Source snapshot and compression are disk-backed; playback caches at most eight FEC generations. Preparing a file that changes in size/mtime during snapshot is rejected; applications needing stronger consistency must snapshot or quiesce their writer.
 
 References: [Nayuki QR generator](https://www.nayuki.io/page/qr-code-generator-library), [ZXing Rust wrapper](https://github.com/zxing-cpp/zxing-cpp/tree/master/wrappers/rust), [RS core](https://github.com/rust-rse/reed-solomon-erasure/blob/v6.0.0/src/core.rs), [tmux 3.4 capture implementation](https://github.com/tmux/tmux/blob/3.4/cmd-capture-pane.c).
+
+## Shadow-ink text envelope (SI1)
+
+The binary frame format above remains unchanged. Text transport sends ASCII
+`SI1 ` followed by the standard, padded RFC 4648 Base64 encoding of the complete
+binary frame, including its CRC32C. Each logical line carries its own transfer,
+object, generation, symbol, run and sequence identity inside the CRC-protected
+frame. There is no screen-level checksum requirement. The maximum logical line
+length is 3944 ASCII bytes, excluding CRLF. Invalid Base64, oversized lines,
+truncation and CRC failures are discarded independently. Repeated lines are
+handled by the existing shard store, and RS 64/96 plus generation and file hashes
+are unchanged.
+
+`send --backend text` positions one complete packet on each physical terminal
+row. It checks the current geometry and pauses when the packet no longer fits;
+`recv --source text:%ID` samples plain capture-pane rows, accepting each intact
+row independently. The automatic configuration uses 165-byte symbols, a
+320x120 pane, up to 118 rows per refresh, and a 30 Hz refresh limit.
+
+`send --backend text-stream` writes 16 CRLF-terminated logical lines per batch,
+using symbols up to the existing 2893-byte limit. It permits terminal wrapping.
+`recv --source pipe:%ID` installs a local tmux output pipe and parses the bytes
+before terminal wrapping. This is a continuous output-stream channel, so screen
+capacity and capture FPS do not limit its theoretical throughput. The local
+reader uses a private FIFO, bounded buffers and nonblocking reads. It refuses to
+replace a pre-existing pane pipe, closes its pipe on ordinary exit, and retains
+reception state. An abrupt kill may require manually closing the stale pane pipe.
+The automatic CLI creates an isolated tmux server and starts the receiving pipe
+before starting the remote sender.
+
+References: [tmux pipe-pane and capture-pane](https://man.openbsd.org/tmux),
+[RFC 4648 Base64](https://www.rfc-editor.org/rfc/rfc4648.txt).

@@ -7,7 +7,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--format-version", "1", "--locked"], cwd=root))
-sections = ["Third-party notices for tqr\n\nDependency sources, licenses and native attribution headers follow.\n"]
+sections = ["Third-party notices for shadow-ink\n\nDependency sources, licenses and native attribution headers follow.\n"]
 for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version"])):
     if package["source"] is None:
         continue

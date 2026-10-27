@@ -1,4 +1,22 @@
-# Mac 与 wgkissshot 的速度实测
+# 字符后端验证（Linux，2026-10-27）
+
+新版默认走 `pipe-pane` 输出流。使用真实的本地 tmux/PTY、不可压缩随机数据、关闭传输层压缩，恢复后独立复核整个文件的 SHA-256。字符流保留 RS 64/96、分片 CRC、分组哈希和最终哈希。
+
+最终构建的 **64 MiB** 复测耗时 **84.61 秒**，校验后有效吞吐 **793 KB/s**，CRC 失败和拒绝帧均为 0，超过 450 KB/s 初步阈值。完整统计、文件哈希、二进制哈希和验证阶段见 [原始报告](validation/text-linux-2026-10-27.json)。这些结果不包含真实 SSH 网络跳转，也不证明 5 GB 或四小时持续运行表现。macOS 当前字符后端尚未原生验证。
+
+一条命令流程另用本地命令替代 SSH 网络跳转，真实运行 tmux、接收器及快照流程，覆盖超时续传、字面路径、中文与空格、目录压缩和两种字符模式。Rust 常规测试、发送端构建、20 项 Python 测试、2 项 tmux/录像验收、两种 feature 构建的 Clippy 均已通过。`scripts/verify.py` 保存全部八个验证阶段及源码指纹。
+
+```bash
+python3 scripts/verify.py
+python3 scripts/benchmark-text.py --mib 64 --backend pipe
+python3 scripts/benchmark-text.py --mib 2 --backend text --report acceptance-output/text-screen.json
+```
+
+字符流发送每批 16 个逻辑行，每行 2893 字节分片，30 批/秒；pipe 读到终端折行前的原始数据，因此吞吐不受单屏容量约束。逐屏模式每行 165 字节分片，在 320×120 画布上接收完整行；先前 2 MiB 实验约 141 KB/s，尚未达到四小时目标的初步阈值。原始报告记录各次二进制 SHA-256，区分不同构建。
+
+---
+
+# 历史 QR：Mac 与 wgkissshot 的速度实测
 
 2026-10-27 在本机 Apple Silicon Mac 上，通过 SSH 别名 `wgkissshot` 播放终端二维码并接收。使用独立 tmux 会话和不易压缩的测试数据，传输层明确关闭压缩。每个配置传输两个完整 RS 分组；所有成功样本均完整恢复并独立通过 SHA-256 校验。
 

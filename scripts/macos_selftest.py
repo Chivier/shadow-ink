@@ -6,6 +6,7 @@ Uses an isolated temporary tmux server; existing sessions are never targeted.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -23,7 +24,7 @@ def run(command, expected=(0,), timeout=90):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parent / "tqr")
+    parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parent / "shadow-ink")
     parser.add_argument("--report", type=Path, help="Save the native runtime result here")
     parser.add_argument("--allow-non-macos", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -47,7 +48,7 @@ def main():
         run(["codesign", "--verify", "--strict", "--all-architectures", binary])
     for command in [[binary, "--help"], [binary, "doctor", "--cell-pixels", "8x16"]]:
         run(command)
-    with tempfile.TemporaryDirectory(prefix="tqr-mac-selftest-") as temp:
+    with tempfile.TemporaryDirectory(prefix="shadow-ink-mac-selftest-") as temp:
         temp = Path(temp)
         source, bundle = temp / "native-selftest.bin", temp / "prepared.tqtx"
         content = b"".join(hashlib.sha256(i.to_bytes(4, "big")).digest() for i in range(625))
@@ -61,7 +62,7 @@ def main():
             return run(["tmux", "-S", socket, "-f", "/dev/null", *arguments]).stdout.strip()
 
         try:
-            left = tmux("new-session", "-d", "-P", "-F", "#{pane_id}", "-x", "244", "-y", "45", "-s", "tqr-selftest")
+            left = tmux("new-session", "-d", "-P", "-F", "#{pane_id}", "-x", "244", "-y", "45", "-s", "shadow-ink-selftest")
             right = tmux("split-window", "-h", "-P", "-F", "#{pane_id}", "-t", left)
             if left == right:
                 raise RuntimeError("selftest did not create distinct panes")
@@ -83,7 +84,19 @@ def main():
                 raise RuntimeError("output is not verified")
         finally:
             subprocess.run(["tmux", "-S", str(socket), "kill-server"], capture_output=True)
-    report = {"all_passed": True, "native_macos_runtime_verified": sys.platform == "darwin", "platform": platform.platform(), "machine": platform.machine(), "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "codesign_verified": signature_checked, "original_bytes": len(content), "original_sha256": hashlib.sha256(content).hexdigest(), "zstd_and_tmux_resume_verified": True, "video_runtime_tested": False, "ffmpeg_available": shutil.which("ffmpeg") is not None}
+    # Exercise the exact packaged executable through the public one-command
+    # entry point. The network hop is replaced locally; tmux and PTYs are real.
+    cli_test = binary.parent / "cli_selftest.py"
+    if not cli_test.is_file():
+        raise RuntimeError("package is missing cli_selftest.py")
+    env = os.environ.copy()
+    env["PATH"] = str(binary.parent) + os.pathsep + env["PATH"]
+    cli = subprocess.run([sys.executable, str(cli_test), "-v"], env=env,
+                         capture_output=True, text=True, timeout=180)
+    if cli.returncode:
+        raise RuntimeError(cli.stdout + cli.stderr)
+    print(cli.stderr, file=sys.stderr)
+    report = {"all_passed": True, "native_macos_runtime_verified": sys.platform == "darwin", "platform": platform.platform(), "machine": platform.machine(), "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "codesign_verified": signature_checked, "original_bytes": len(content), "original_sha256": hashlib.sha256(content).hexdigest(), "zstd_and_tmux_resume_verified": True, "text_and_targeted_resume_verified": True, "cli_test_log": cli.stderr, "video_runtime_tested": False, "ffmpeg_available": shutil.which("ffmpeg") is not None}
     if args.report:
         with args.report.open("x") as saved:
             json.dump(report, saved, indent=2)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Receive a remote file or directory with one command, using terminal QR playback."""
+"""Receive a remote file or directory with one command, using terminal text or QR playback."""
 import argparse
 import fcntl
 import hashlib
@@ -27,6 +27,10 @@ SPEEDS = {
 
 
 def required_geometry(settings):
+    if settings.get('backend') == 'pipe':
+        return 120, 40
+    if settings.get('backend') == 'text':
+        return 320, 120
     modules = 4 * settings['qr_version'] + 25
     return max(modules, 55) + 1, (modules + 1)//2 + 3
 
@@ -37,7 +41,10 @@ def binary_hash(binary):
 
 def choose_settings(args, host, base, previous=None):
     speed = args.speed or 'auto'
-    if previous and args.speed is None:
+    backend = getattr(args, 'backend', 'qr') or 'pipe'
+    if (previous and args.speed is None
+            and (getattr(args, 'backend', None) is None
+                 or backend == previous.get('transfer_settings', {}).get('backend', 'qr'))):
         settings = previous.get('transfer_settings')
         if settings is None:
             size = previous['manifest']['symbol_bytes']
@@ -45,9 +52,12 @@ def choose_settings(args, host, base, previous=None):
         if settings is None:
             raise GetError('旧断点的二维码配置未知；使用 --fresh 新建传输')
         settings = dict(settings)
+    elif backend != 'qr':
+        settings = dict(qr_version=40, ecc='L', symbol_bytes=2893 if backend == 'pipe' else 165,
+                        fps=30, capture_fps=120, backend=backend, name=backend)
     elif speed == 'auto':
         recommended = read_json(base/'benchmarks'/host/'recommended.json')
-        if (recommended and recommended.get('receiver_sha256') == binary_hash(shutil.which('tqr'))
+        if (recommended and recommended.get('receiver_sha256') == binary_hash(os.environ.get('SHADOW_INK_BIN') or shutil.which('shadow-ink'))
                 and 0 <= time.time()-recommended.get('measured_at', 0) <= 14*86400):
             settings = dict(recommended['settings'], name='auto（本机实测）')
         else:
@@ -66,11 +76,11 @@ def choose_settings(args, host, base, previous=None):
 REMOTE_PREPARE = r'''
 import fcntl, hashlib, json, os, pathlib, shutil, subprocess, sys, tarfile, uuid
 c = json.loads(sys.argv[1])
-root = pathlib.Path.home() / '.cache/tqr-get'
+root = pathlib.Path.home() / '.cache/shadow-ink-get'
 root.mkdir(parents=True, exist_ok=True, mode=0o700)
-binary = shutil.which('tqr') or str(pathlib.Path.home()/'.local/bin/tqr')
+binary = shutil.which('shadow-ink') or str(pathlib.Path.home()/'.local/bin/shadow-ink')
 if not pathlib.Path(binary).is_file():
-    raise RuntimeError('Remote tqr is missing; install the sender first')
+    raise RuntimeError('Remote shadow-ink is missing; install the sender first')
 def inspect(bundle):
     p = subprocess.run([binary, 'inspect', str(bundle)], capture_output=True, text=True)
     if p.returncode:
@@ -97,7 +107,7 @@ source = source.resolve(strict=True)
 if not (source.is_file() or source.is_dir()):
     raise RuntimeError('Source must be a regular file or directory')
 if source.is_dir() and root.resolve().is_relative_to(source):
-    raise RuntimeError('Source contains the tqr-get cache; select a more specific directory')
+    raise RuntimeError('Source contains the shadow-ink-get cache; select a more specific directory')
 def fingerprint():
     digest = hashlib.sha256()
     paths = [source]
@@ -213,7 +223,7 @@ def source_argument(value, kiss=False):
     else:
         host, separator, path = value.partition(':')
         if not separator:
-            raise GetError('用法：tqr-get 服务器:文件路径，例如 tqr-get wgkissshot:results.csv')
+            raise GetError('用法：shadow-ink-get 服务器:文件路径，例如 shadow-ink-get wgkissshot:results.csv')
     if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.@-]*', host):
         raise GetError('服务器必须是 SSH 别名或主机名，例如 wgkissshot')
     if not path or any(ord(char) < 32 or ord(char) == 127 for char in path):
@@ -254,6 +264,7 @@ class TerminalTransfer:
         self.visible = False
         self.receiver = None
         self.playing = False
+        self.only_generations = None
 
     def tmux(self, *args):
         base = ['tmux'] + (['-S', self.socket, '-f', '/dev/null'] if self.socket else [])
@@ -284,11 +295,11 @@ class TerminalTransfer:
                                       '-t', current, 'sleep 86400')
                 self.inline = True
         if not self.pane:
-            self.temporary = tempfile.TemporaryDirectory(prefix='tqr-get-')
+            self.temporary = tempfile.TemporaryDirectory(prefix='shadow-ink-get-')
             self.socket = str(Path(self.temporary.name)/'tmux.sock')
             canvas_cols, canvas_rows = max(244, 2*required_cols + 1), max(45, required_rows + 2)
             self.pane = self.tmux('new-session', '-d', '-P', '-F', '#{pane_id}', '-x', str(canvas_cols),
-                                  '-y', str(canvas_rows), '-s', 'tqr-get', 'sleep 86400')
+                                  '-y', str(canvas_rows), '-s', 'shadow-ink-get', 'sleep 86400')
             self.tmux('set-option', '-g', 'window-size', 'manual')
             self.tmux('set-option', '-g', 'remain-on-exit', 'on')
             self.tmux('set-option', '-g', 'status', 'off')
@@ -307,10 +318,9 @@ class TerminalTransfer:
             columns, lines = shutil.get_terminal_size((0, 0))
             self.visible = terminal and not os.environ.get('TMUX') and columns >= canvas_cols and lines >= canvas_rows
         self.tmux('set-option', '-p', '-t', self.pane, 'remain-on-exit', 'on')
-        self.play(fps)
         if self.visible:
-            print('左侧二维码，右侧进度；完成后自动返回。', flush=True)
-            self.attach = subprocess.Popen(['tmux', '-S', self.socket, 'attach-session', '-t', 'tqr-get'],
+            print('左侧传输字符，右侧进度；完成后自动返回。', flush=True)
+            self.attach = subprocess.Popen(['tmux', '-S', self.socket, 'attach-session', '-t', 'shadow-ink-get'],
                                            env=self.environment(attached=True))
 
     def play(self, fps):
@@ -322,11 +332,16 @@ class TerminalTransfer:
                 if time.monotonic() >= deadline:
                     raise GetError('旧发送端未退出；进度已保留，请重试')
                 time.sleep(.1)
+        backend = self.settings.get('backend', 'qr')
+        send_backend = 'text-stream' if backend == 'pipe' else backend
+        sender = [self.meta['binary'], 'send', self.meta['remote_bundle'],
+                  '--fps', str(fps), '--qr-version', str(self.settings['qr_version']),
+                  '--ecc', self.settings['ecc'], '--backend', send_backend, '--loop']
+        if self.only_generations:
+            sender += ['--only-generations', self.only_generations]
         command = shlex.join(['ssh', '-tt', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
                              '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', self.host,
-                             'exec ' + shlex.join([self.meta['binary'], 'send', self.meta['remote_bundle'],
-                                                  '--fps', str(fps), '--qr-version', str(self.settings['qr_version']),
-                                                  '--ecc', self.settings['ecc'], '--loop'])])
+                             'exec ' + shlex.join(sender)])
         self.tmux('respawn-pane', '-k', '-t', self.pane, command)
         self.playing = True
 
@@ -374,8 +389,12 @@ def receive(binary, host, meta, job, output, args, settings):
     log = job/'progress.log'
     try:
         log.write_text('')
+        backend = settings.get('backend', 'qr')
+        ready = job/'state'/'receiver-ready.json'
+        ready.unlink(missing_ok=True)
         transport.start(settings['fps'])
-        command = [binary, 'recv', '--source', 'tmux:' + transport.pane,
+        source_kind = 'tmux' if backend == 'qr' else backend
+        command = [binary, 'recv', '--source', source_kind + ':' + transport.pane,
                    '--state', str(job/'state'), '--output', str(output), '--capture-fps', str(settings['capture_fps']),
                    '--transfer-id', meta['transfer_id'], '--max-bytes', str(args.max_bytes)]
         if transport.socket:
@@ -392,6 +411,24 @@ def receive(binary, host, meta, job, output, args, settings):
             stderr.flush()
             transport.receiver = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,
                                                   stderr=stderr, env=transport.environment())
+            # Rechecking a large partial file can take time. Wait for an atomic
+            # checkpoint from the receiver rather than trusting status counters
+            # or imposing a short startup timeout on multi-GB recovery.
+            while not ready.exists() and transport.receiver.poll() is None:
+                time.sleep(.02)
+            recovered = read_json(ready) if ready.exists() else None
+            if recovered:
+                completed = recovered['completed_generations']
+                total = recovered['total_generations']
+                if total:
+                    print(f"断点校验完成：{completed}/{total} 组，已恢复 {recovered['verified_transport_bytes']:,} 字节", flush=True)
+                    missing = recovered['missing_generations']
+                    if missing and len(missing) <= 16384:
+                        transport.only_generations = missing
+                    elif missing:
+                        print('缺失分组列表较长，将循环播放全部分组，保留已有接收进度。', flush=True)
+            if transport.receiver.poll() is None:
+                transport.play(settings['fps'])
             while transport.receiver.poll() is None:
                 time.sleep(.2)
                 if transport.tmux('display-message', '-p', '-t', transport.pane, '#{pane_dead}') == '1':
@@ -404,7 +441,7 @@ def receive(binary, host, meta, job, output, args, settings):
                 if counts and int(counts[1]) > last_unique:
                     last_unique = int(counts[1])
                     progress_at = time.monotonic()
-                if (getattr(args, 'adaptive', True) and current_fps > 3
+                if (backend != 'pipe' and getattr(args, 'adaptive', True) and current_fps > 3
                         and time.monotonic()-progress_at >= 5):
                     current_fps = max(3, current_fps/2)
                     adaptive_events.append(dict(fps=current_fps, reason='no_new_symbols_for_5_seconds'))
@@ -422,6 +459,8 @@ def receive(binary, host, meta, job, output, args, settings):
         result['requested_settings'] = settings
         result['effective_fps'] = current_fps
         result['adaptive_events'] = adaptive_events
+        result['replay_generations'] = transport.only_generations
+        result['resume_checkpoint'] = recovered
         save_json(job/'result.json', result)
         if transport.receiver.returncode != 0 or not result.get('complete'):
             if transport.receiver.returncode == 2:
@@ -458,7 +497,7 @@ def benchmark(host, base, binary):
     print('测速记录：' + str(folder/'report.json'), flush=True)
     sizes = {str(size): benchmark_bytes(size) for size in (224, 712, 2893)}
     remote_script = '''import hashlib,json,os,pathlib,shutil,tempfile,sys
-root=pathlib.Path.home()/'.cache/tqr-get-benchmarks'
+root=pathlib.Path.home()/'.cache/shadow-ink-get-benchmarks'
 root.mkdir(parents=True,exist_ok=True,mode=0o700)
 folder=pathlib.Path(tempfile.mkdtemp(prefix='run-',dir=root))
 seed=os.urandom(32)
@@ -467,7 +506,7 @@ for size,length in json.loads(sys.argv[1]).items():
  p=folder/('benchmark-'+str(size)+'.bin')
  p.write_bytes(hashlib.shake_256(seed).digest(length))
  paths[str(size)]=str(p)
-binary=pathlib.Path(shutil.which('tqr') or pathlib.Path.home()/'.local/bin/tqr')
+binary=pathlib.Path(shutil.which('shadow-ink') or pathlib.Path.home()/'.local/bin/shadow-ink')
 print(json.dumps(dict(paths=paths,sender_sha256=hashlib.sha256(binary.read_bytes()).hexdigest())))
 '''
     remote = run(['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', host,
@@ -552,11 +591,15 @@ print(json.dumps(dict(paths=paths,sender_sha256=hashlib.sha256(binary.read_bytes
 
 
 def main():
-    parser = argparse.ArgumentParser(description='一条命令，通过终端二维码接收远程文件或文件夹。')
+    parser = argparse.ArgumentParser(prog='shadow-ink get' if sys.argv[0] == '-c' else Path(sys.argv[0]).name, description='自动启动本地 tmux，通过 SSH 终端字符接收远程文件或文件夹。用法：shadow-ink SERVER FILEPATH')
     kiss = Path(sys.argv[0]).name == 'kiss-get'
-    parser.add_argument('source', nargs='?', help='远程路径（kiss-get）' if kiss else 'SSH别名:远程路径；测速时填 SSH 别名')
+    parser.add_argument('source', nargs='?', help='远程路径（kiss-get）' if kiss else 'SSH 服务器；也支持服务器:远程路径')
+    parser.add_argument('remote_path', nargs='?', help='远程文件路径；也支持 SERVER:PATH 写法')
+    parser.add_argument('--backend', choices=['pipe', 'text', 'qr'], help='pipe（默认）：tmux 输出流；text：逐行字符采样；qr：兼容二维码')
     parser.add_argument('-o', '--output', type=Path, help='保存目录，默认 ~/Downloads/from-服务器')
-    parser.add_argument('--fresh', action='store_true', help='重新准备当前内容，不续传旧快照')
+    recovery = parser.add_mutually_exclusive_group()
+    recovery.add_argument('--fresh', action='store_true', help='重新准备当前内容，不续传旧快照')
+    recovery.add_argument('--resume', action='store_true', help='继续上次快照；没有本地断点时明确报错（默认自动续传未完成任务）')
     parser.add_argument('--speed', choices=['auto', *SPEEDS], help='auto（默认）使用有效实测推荐；其余为速度档位')
     parser.add_argument('--list-speeds', action='store_true', help='显示速度档位')
     parser.add_argument('--benchmark', action='store_true', help='实测二维码容量 × 10/20/30/60 fps，并保存自动档位')
@@ -564,10 +607,17 @@ def main():
     parser.add_argument('--capture-fps', type=float, help='覆盖档位接收采样率，0.1–120')
     parser.add_argument('--fixed-rate', action='store_true', help='固定发送帧率，停滞时不自动降帧')
     parser.add_argument('--timeout', type=float, help='接收时限（秒），到时保存断点')
-    parser.add_argument('--max-bytes', type=int, default=1073741824, help='最大文件字节数，默认 1 GiB')
-    parser.add_argument('--no-ui', action='store_true', help='后台播放二维码，前台仅显示进度')
+    parser.add_argument('--max-bytes', type=int, default=8589934592, help='最大文件字节数，默认 8 GiB')
+    parser.add_argument('--no-ui', action='store_true', help='后台传输，前台仅显示进度')
     args = parser.parse_args()
     args.adaptive = not args.fixed_rate
+    if args.remote_path is not None:
+        if kiss or not args.source or ':' in args.source:
+            parser.error('用法：shadow-ink SERVER FILEPATH，或 shadow-ink SERVER:FILEPATH')
+        args.source = args.source + ':' + args.remote_path
+    args.backend = args.backend or ('qr' if args.speed or args.benchmark else None)
+    if args.backend not in (None, 'qr') and args.speed is not None:
+        parser.error('--speed 仅用于 --backend qr；字符模式可用 --fps 调整')
     if args.list_speeds:
         print('auto：使用 14 天内、与本机接收程序匹配的实测推荐；尚无推荐时用 safe')
         for name, setting in SPEEDS.items():
@@ -581,16 +631,18 @@ def main():
         raise GetError('--timeout 必须大于 0')
     if args.max_bytes <= 0:
         raise GetError('--max-bytes 必须大于 0')
-    for tool in ('ssh', 'tmux', 'tqr'):
+    for tool in ('ssh', 'tmux'):
         if not shutil.which(tool):
             raise GetError(f'本机缺少 {tool}，请先安装')
-    binary = shutil.which('tqr')
-    base = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state')))/'tqr-get'
+    binary = os.environ.get('SHADOW_INK_BIN') or shutil.which('shadow-ink')
+    if not binary:
+        raise GetError('本机缺少 shadow-ink，请先安装')
+    base = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state')))/'shadow-ink-get'
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
     if args.benchmark:
         host = 'wgkissshot' if kiss else args.source
         if not host or (kiss and args.source):
-            raise GetError('测速用法：kiss-get --benchmark 或 tqr-get wgkissshot --benchmark')
+            raise GetError('测速用法：kiss-get --benchmark 或 shadow-ink-get wgkissshot --benchmark')
         host, _ = source_argument(host + ':benchmark')
         benchmark_root = base/'benchmarks'/host
         benchmark_root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -614,13 +666,15 @@ def main():
             raise GetError('同一文件已有接收任务正在运行') from None
         previous = read_json(request/'latest.json')
         resume = None
+        if args.resume and not previous:
+            raise GetError('没有可续传的本地记录；先运行不带 --resume 的原命令')
         if previous and not args.fresh:
             result = read_json(request/previous['transfer_id']/'result.json')
-            if not result or not result.get('complete'):
+            if args.resume or not result or not result.get('complete'):
                 resume = previous
         settings = choose_settings(args, host, base, resume)
         print(('继续上次快照：' if resume else '准备：') + host + ':' + remote_path, flush=True)
-        print(f"速度档位 {settings['name']}：V{settings['qr_version']}-{settings['ecc']} / {settings['symbol_bytes']} B/帧 / 发送 {settings['fps']} fps / 采样 {settings['capture_fps']} fps", flush=True)
+        print(f"传输模式 {settings.get('backend', 'qr')} / {settings['symbol_bytes']} B/分片 / {settings['fps']} fps / 采样 {settings['capture_fps']} fps", flush=True)
         meta = remote_prepare(host, remote_path, resume, args.fresh, settings)
         meta['transfer_settings'] = settings
         manifest = meta['manifest']
@@ -667,5 +721,5 @@ if __name__ == '__main__':
             print('\n已中断；重跑相同命令可从断点继续。', file=sys.stderr)
         sys.exit(130)
     except (GetError, OSError, ValueError, subprocess.SubprocessError) as error:
-        print('tqr-get: ' + str(error), file=sys.stderr)
+        print('shadow-ink-get: ' + str(error), file=sys.stderr)
         sys.exit(1)

@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 fn cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_tqr"))
+    Command::new(env!("CARGO_BIN_EXE_shadow-ink"))
         .args(args)
         .output()
         .unwrap()

@@ -34,12 +34,12 @@ subprocess.run([sys.executable, "scripts/collect_notices.py", str(notices)], che
 artifacts = {}
 for arch in ["aarch64", "x86_64", "universal2"]:
     print("PACKAGE macOS", arch, flush=True)
-    name = f"tqr-{version}-macos-{arch}"
+    name = f"shadow-ink-{version}-macos-{arch}"
     stage = DIST / name
     stage.mkdir(exist_ok=True)
-    binary = stage / "tqr"
-    shutil.copy2(ROOT / f"target/{arch}-apple-darwin/release/tqr", binary)
-    signed = subprocess.run([signer, "sign", "--config-file", "/dev/null", "--timestamp-url", "none", "--digest", "sha256", "--binary-identifier", "org.shadow-ink.tqr", str(binary)], env=env, capture_output=True, text=True)
+    binary = stage / "shadow-ink"
+    shutil.copy2(ROOT / f"target/{arch}-apple-darwin/release/shadow-ink", binary)
+    signed = subprocess.run([signer, "sign", "--config-file", "/dev/null", "--timestamp-url", "none", "--digest", "sha256", "--binary-identifier", "org.shadow-ink.shadow-ink", str(binary)], env=env, capture_output=True, text=True)
     (REPORT / f"macos-sign-{arch}.log").write_text(signed.stdout + signed.stderr)
     if signed.returncode:
         raise RuntimeError(signed.stdout + signed.stderr)
@@ -56,7 +56,7 @@ for arch in ["aarch64", "x86_64", "universal2"]:
         raise RuntimeError(verification_diagnostic)
     info["rcodesign_verifier_exit_code"] = verified.returncode
     info["verification_method"] = "independent SHA-256 CodeDirectory page verification; native Apple codesign pending"
-    native_proof = ROOT / "docs/validation/macos-v0.1.0.json"
+    native_proof = ROOT / f"docs/validation/macos-v{version}.json"
     if native_proof.exists():
         proof = json.loads(native_proof.read_text())
         matching = [r["result"] for r in proof["reports"] if r["variant"] == arch and r["result"]["binary_sha256"] == info["sha256"] and r["result"]["all_passed"] and r["result"]["native_macos_runtime_verified"] and r["result"]["codesign_verified"]]
@@ -73,12 +73,13 @@ for arch in ["aarch64", "x86_64", "universal2"]:
         shutil.copy2(ROOT / source, stage / source)
     shutil.copy2(notices, stage / notices.name)
     (stage / "docs").mkdir(exist_ok=True)
-    for source in ["MACOS.md", "PROTOCOL.md", "BUILD.md", "ACCEPTANCE.md"]:
+    for source in ["MACOS.md", "PROTOCOL.md", "BUILD.md", "ACCEPTANCE.md", "GET.md", "PERFORMANCE.md"]:
         shutil.copy2(ROOT / "docs" / source, stage / "docs" / source)
     if (ROOT / "docs/validation").exists():
         shutil.copytree(ROOT / "docs/validation", stage / "docs/validation", dirs_exist_ok=True)
     shutil.copy2(ROOT / "scripts/macos_selftest.py", stage / "selftest.py")
-    (stage / "SHA256SUMS").write_text(f"{info['sha256']}  tqr\n" + f"{hashlib.sha256((stage / 'selftest.py').read_bytes()).hexdigest()}  selftest.py\n")
+    shutil.copy2(ROOT / "tests/test_shadow_ink_cli.py", stage / "cli_selftest.py")
+    (stage / "SHA256SUMS").write_text(f"{info['sha256']}  shadow-ink\n" + f"{hashlib.sha256((stage / 'selftest.py').read_bytes()).hexdigest()}  selftest.py\n" + f"{hashlib.sha256((stage / 'cli_selftest.py').read_bytes()).hexdigest()}  cli_selftest.py\n")
     (stage / "reports").mkdir(exist_ok=True)
     shutil.copy2(REPORT / "checks.json", stage / "reports/linux-checks.json")
     (stage / "reports/macos-binary.json").write_text(json.dumps(info, indent=2) + "\n")

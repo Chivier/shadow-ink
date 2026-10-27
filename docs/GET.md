@@ -1,110 +1,70 @@
 # 一条命令接收
 
-在 **Mac 本地终端**运行：
-
 ```bash
-kiss-get /home/chivier/results.csv
+shadow-ink server-a /home/user/results.bin
+shadow-ink server-a '/home/user/实验结果' -o ./received
 ```
 
-`kiss-get` 默认从 `wgkissshot` 获取数据。其他服务器使用：
+`server-a` 使用现有 SSH 配置，要求可用的非交互 SSH 认证。本机需要完整 `shadow-ink`、tmux、ssh 和 Python 3.9+；远端需要新版 `shadow-ink` 和 Python 3.9+。远端程序可放在 PATH 或 `~/.local/bin/shadow-ink`。二进制已内嵌编排脚本，安装后无需额外脚本。
+
+工具会自动启动独立的本地 tmux，准备远程固定快照并播放终端字符，从本地 pane 的输出流恢复文件。默认后台运行 tmux，在当前终端输出进度，完成后关闭本次创建的 tmux。底层接收器不连接服务器；SSH 准备步骤只回传元数据，文件通过远程终端输出传输。
+
+默认保存到 `~/Downloads/from-server-a/`。目录保存为 tar，不自动解包。文件在完整 SHA-256 通过后发布；自动解压仅针对传输层 zstd。已有相同文件会独立复核；同名不同内容保留，本次保存到 `transfer-ID/` 子目录。
+
+## 模式与选项
+
+| 选项 | 用途 |
+|---|---|
+| `--backend pipe` | 默认，从 tmux pipe-pane 连续读取 Base64 行，每行包含一个带 CRC 的协议帧 |
+| `--backend text` | 320×120 字符画布，通过 capture-pane 接收完整行；中途重绘不会使整屏作废 |
+| `--backend qr` | 兼容 QR 播放与解码 |
+| `--fps 30` | 批次/屏刷新上限；pipe 每批 16 个独立包 |
+| `--capture-fps 120` | 本地轮询上限，pipe 模式每次会排空一批可用数据 |
+| `--timeout 60` | 本次接收限时，保留断点 |
+| `--max-bytes 8589934592` | 默认 8 GiB，分别约束原文件和传输对象大小 |
+| `--resume` | 显式继续原快照，无本地记录时报错，与 `--fresh` 互斥 |
+| `--fresh` | 准备当前内容的新快照，保留旧快照和断点 |
+| `-o DIRECTORY` | 本地保存目录 |
+
+Ctrl-C 后，重跑同一命令会继续原快照，即使远端原文件已变化。缺少远端快照时明确报错，使用 `--fresh` 开始新传输。改变分片容量需要 `--fresh`。接收结果、分片和日志保存在 `${XDG_STATE_HOME:-~/.local/state}/shadow-ink-get/`；远端快照位于 `~/.cache/shadow-ink-get/`。两者不自动清理，旧 tqr 缓存继续保留。
+
+## 断点续传
 
 ```bash
-tqr-get server-a:/home/user/results.csv
+shadow-ink server-a /path/to/file.bin
+# Ctrl-C / 超时 / 断线后，重跑原命令自动续传：
+shadow-ink server-a /path/to/file.bin
+# 或显式要求继续上次快照：
+shadow-ink server-a /path/to/file.bin --resume
 ```
 
-文件默认保存在 `~/Downloads/from-wgkissshot/`，其他服务器按 SSH 名称建立保存目录。完成后显示文件位置和 SHA-256 校验结果。路径含空格时给整个参数加引号：
+续传使用相同的服务器、路径和 `-o` 保存目录。保留本地状态目录与远端快照，源文件后来发生变化也继续恢复原快照；`--fresh` 才会重新准备当前内容。显式 `--resume` 对已完成任务也选择原快照并复核已有输出。
+
+接收器先检查 SQLite、缓存分片 CRC 和已恢复分组的实际 SHA-256，再发布本次恢复进度。控制器等校验结束后，用 `--only-generations` 让远端只播放缺失或损坏的分组；未完成组内的有效分片仍然保留。启动时会显示校验后的分组数和已恢复字节数。损坏的 `.part` 分组会重新进入补传范围，避免只按旧数据库计数跳过数据。
+
+没有拿到 manifest 的早期断点会先播放完整序列以恢复元数据；缺失分组参数超过 16 KiB 时会回退为循环播放全部分组，仍复用已有进度。最终必须通过整个文件 SHA-256 才会发布文件。`result.json` 中的 `resume_checkpoint` 和 `replay_generations` 记录这次续传的校验结果与补传范围。
+
+Linux 本地真实 tmux 的续传验证记录见 [验收报告](validation/resume-linux-2026-10-27.json)。CLI 测试以本地命令替代 SSH 网络跳转。
+
+每个请求使用独占锁。自动模式仅关闭自己创建的 pane/server，已有 tmux 会话继续保留。手动 `recv --source pipe:%ID` 遇到已有 pipe 时会拒绝覆盖它。
+
+## QR 档位与测速
 
 ```bash
-kiss-get '/home/chivier/实验结果/results.csv'
+shadow-ink server-a /path/file --backend qr --speed balanced
+shadow-ink get --list-speeds
+shadow-ink get server-a --backend qr --benchmark
 ```
 
-也可以使用远程用户主目录下的相对路径：`kiss-get results.csv`。远程 `~` 需要引号，避免在 Mac 上展开：`kiss-get '~/results.csv'`。
+QR 保留 safe/balanced/fast/turbo/auto。auto 使用 14 天内与本机二进制匹配、至少两次完整校验的测速推荐；没有有效推荐时使用 safe。QR 接收停滞时默认降低帧率，`--fixed-rate` 可关闭。`--speed` 仅适用于 QR；字符模式用 `--fps`。
 
-## 自动完成的操作
-
-工具通过现有 SSH 配置连接服务器，准备不可变传输包，启动二维码播放，在 Mac 上接收并独立复核 SHA-256，最后停止发送。文件内容经 SSH 终端二维码传输，接收器仍只读取本地 tmux pane；SSH 准备连接只返回文件名、哈希和传输标识等元数据。
-
-稳妥档在尺寸足够的现有 tmux pane 内运行时，在左侧新增发送 pane，当前 pane 显示进度，完成后关闭新增 pane。普通终端尺寸足够时，自动进入二维码和进度分屏，完成后返回。较大二维码的档位默认使用独立后台 tmux 画布，前台显示进度，减少可见终端布局对采集的干扰。小窗口或非交互运行同样使用后台画布。不会关闭已有 tmux 会话。
-
-## 速度档位
+本地字符吞吐验证：
 
 ```bash
-kiss-get /home/chivier/results.csv --speed balanced
-kiss-get /home/chivier/results.csv --speed fast
-kiss-get --list-speeds
+python3 scripts/benchmark-text.py --mib 64 --backend pipe
+python3 scripts/benchmark-text.py --mib 2 --backend text --report acceptance-output/text-screen.json
 ```
 
-| 档位 | 二维码 | 数据分片 | 发送上限 | 接收采样上限 |
-|---|---|---:|---:|---:|
-| `safe` 稳妥 | V12-M | 224 B | 10 fps | 40 fps |
-| `balanced` 均衡 | V22-M | 712 B | 20 fps | 80 fps |
-| `fast` 快速 | V40-L | 2893 B | 30 fps | 120 fps |
-| `turbo` 极限 | V40-L | 2893 B | 60 fps | 120 fps |
-| `auto` 默认 | 使用本机对该服务器的有效测速推荐；无有效推荐时用 `safe` | | | |
+这些测试创建隔离的真实 tmux/PTY，使用不可压缩数据并独立复核 SHA-256；它们不证明真实 SSH 带宽或四小时稳定性。
 
-这些是配置参数，不是实测帧率或速度保证。发送还包含编码和输出耗时；采样还包含 tmux 捕获、二维码解码及状态写入。极限档位可能比快速档位慢。
-
-日常传输如果连续 5 秒没有新增分片，会自动降低发送帧率并重播原快照，保留接收端已收内容，最低降至 3 fps。实际使用过的帧率和降帧事件写入传输记录。需要固定参数做实验时加 `--fixed-rate`；一键测速始终固定每个候选的参数，不启用自动降帧。
-
-V12、V22、V40 的播放 pane 分别至少需要 74×40、114×60、186×96 个字符单元格。小终端也可以使用大二维码，工具会自动创建足够大的后台画布。tmux 读取的是字符和颜色状态，见 [capture-pane 手册](https://man.openbsd.org/tmux#capture-pane)。
-
-### 一键测速与自动选择
-
-```bash
-kiss-get --benchmark
-# 其他服务器：
-tqr-get server-a --benchmark
-```
-
-测速自动生成不易压缩的临时样本，通过真实 SSH 终端二维码发送，比较 V12-M、V22-M、V40-L × 10/20/30/60 fps，同时测量原 3 fps 配置和预设档位。每个样本包含两个 RS 分组，只有完整恢复并独立通过 SHA-256 校验才算成功。
-
-报告分别记录配置发送帧率、依据帧序号推算的实际发送帧率、实际采样率、每秒新增数据分片，以及经过完整校验的有效字节速度。有效速度包含 SSH 播放连接启动、接收、最终校验和发送端收尾的时间；准备和压缩时间单独排除。不同数据帧数不包含重复帧和元数据帧。
-
-最快的两个候选各再测一次，按两次中较慢的有效速度选择 `auto` 配置。推荐与 Mac 接收程序 SHA-256 绑定，有效期 14 天。更新接收程序或推荐过期后回到 `safe`；网络或服务器负载变化时可重新测速。短样本结果不代表多小时传输的稳定性。
-
-参见 [2026-10-27 Mac 与 wgkissshot 的实测结果](PERFORMANCE.md)。
-
-报告和推荐保存在本机状态目录的 `benchmarks/服务器/` 下。源码优化合并了每次采样的三个 tmux 子进程，保留前后尺寸检查；tmux 二值模块重建使用两像素比例，将输入解码器的像素数减少 75%，录像路径保持原样。
-
-## 续传和新版本
-
-Ctrl-C 中断后，再执行同一条命令即可继续。中断任务沿用第一次准备的快照，源文件后续变化不会混入这次传输。想放弃旧快照、获取当前内容时：
-
-```bash
-kiss-get /home/chivier/results.csv --fresh
-```
-
-已完成的任务会检查远端文件是否变化；未变化且本地文件校验一致时直接完成。已有不同内容的同名文件会保留，新文件保存到 `transfer-<ID>/` 子目录。
-
-续传默认沿用原二维码容量。`fast` 和 `turbo` 容量相同，可在续传时互换；跨容量切档位需要 `--fresh`，旧快照和本机断点仍然保留：
-
-```bash
-kiss-get /home/chivier/results.csv --speed fast --fresh
-```
-
-文件夹使用同一条命令，自动打包成 `.tar` 并在传输层压缩；Mac 收到后保留 tar 归档，按需自行解压。符号链接保留为归档条目，不跟随链接读取其他目录。不要选择包含工具缓存 `~/.cache/tqr-get` 的上级目录作为源。
-
-## 可选设置
-
-```bash
-kiss-get /home/chivier/results.csv -o ~/Downloads/my-results
-kiss-get /home/chivier/results.csv --fps 10
-kiss-get /home/chivier/results.csv --speed fast --fps 20 --capture-fps 80
-kiss-get /home/chivier/results.csv --no-ui
-```
-
-默认使用 `auto`；`--fps` 可覆盖发送帧率，范围 0.1–60，`--capture-fps` 可覆盖采样率，范围 0.1–120。`--no-ui` 仅显示进度。`--timeout 秒数` 在时限到达后保存断点退出。默认接收上限 1 GiB，可用 `--max-bytes 字节数` 调整，例如传 5 GB 文件时设置 `--max-bytes 6000000000`。
-
-本机状态保存在 `${XDG_STATE_HOME:-~/.local/state}/tqr-get/`，远端快照保存在 `~/.cache/tqr-get/`。这些内容保留用于续传，工具不会自动删除源文件或其他缓存。
-
-## 安装与验证
-
-本机需要 Python 3.9+、`tmux`、完整版本 `tqr` 和可用的 SSH。服务器需要 Python 3.9+ 和已安装的 `tqr` 发送端，无需远端 tmux。使用本机现有 SSH 密钥和别名，遵守 SSH 配置中的 ProxyJump；不传递本机 GitHub 凭据。
-
-```bash
-sh scripts/install-get.sh
-kiss-get --help
-python3 -m unittest discover -s tests -p test_tqr_get.py -v
-```
-
-默认安装到 `~/.local/bin`，确保该目录已在 PATH 中。使用 `TQR_GET_BIN_DIR` 可以指定其他目录。
+可选的 `scripts/install-get.sh` 仍可安装独立 `shadow-ink-get` 包装脚本和 `kiss-get` 别名；主入口推荐直接使用 `shadow-ink SERVER FILEPATH`。

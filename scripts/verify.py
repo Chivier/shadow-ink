@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run all first-release gates and retain command results and source provenance."""
+"""Run all release gates and retain command results and source provenance."""
 import json
 import os
 from pathlib import Path
@@ -20,13 +20,15 @@ commands = [
     ["cargo", "clippy", "--locked", "--all-targets", "--all-features", "--", "-D", "warnings"],
     ["cargo", "clippy", "--locked", "--no-default-features", "--all-targets", "--", "-D", "warnings"],
     ["cargo", "build", "--release", "--locked"],
+    ["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v"],
     ["cargo", "test", "--locked", "--test", "acceptance", "--", "--ignored", "--nocapture", "--test-threads=1"],
 ]
 for number, command in enumerate(commands):
     print("RUN", " ".join(command), flush=True)
     start = time.monotonic()
     env = os.environ.copy()
-    env["TQR_ACCEPTANCE_BIN"] = str(ROOT / "target/release/tqr")
+    env["PATH"] = str(ROOT / "target/release") + os.pathsep + env["PATH"]
+    env["TQR_ACCEPTANCE_BIN"] = str(ROOT / "target/release/shadow-ink")
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
     log = REPORT / f"gate-{number + 1}.log"
     log.write_text(result.stdout)

@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -18,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 REPORT = ROOT / "acceptance-output"
 REPORT.mkdir(exist_ok=True)
-FULL = ROOT / "target/release/tqr"
-SENDERS = {arch: ROOT / f"target/{arch}-unknown-linux-musl/release/tqr" for arch in ["x86_64", "aarch64"]}
+FULL = ROOT / "target/release/shadow-ink"
+SENDERS = {arch: ROOT / f"target/{arch}-unknown-linux-musl/release/shadow-ink" for arch in ["x86_64", "aarch64"]}
 EMULATOR = Path(os.environ.get("TQR_ARM_EMULATOR", str(ROOT / "target/build-tools/qemu/usr/bin/qemu-aarch64-static")))
 
 
@@ -42,6 +43,14 @@ def acceptance(label, sender, prefix):
         raise RuntimeError(f"{label} failed")
 
 
+def text_acceptance(label, sender, prefix):
+    report = REPORT / f"text-{label}.json"
+    checked([sys.executable, ROOT / "scripts/benchmark-text.py", "--binary", FULL,
+             "--sender-binary", sender, "--sender-prefix", json.dumps([str(s) for s in prefix]),
+             "--mib", "1", "--report", report])
+    assert json.loads(report.read_text())["verified"]
+
+
 artifacts = {}
 for arch, sender in SENDERS.items():
     data = sender.read_bytes()
@@ -51,7 +60,7 @@ for arch, sender in SENDERS.items():
     prefix = [] if arch == "x86_64" else [EMULATOR]
     help_text = checked(prefix + [sender, "--help"]).stdout
     assert "prepare" in help_text and "recv" not in help_text
-    with tempfile.TemporaryDirectory(prefix="tqr-artifact-") as temp:
+    with tempfile.TemporaryDirectory(prefix="shadow-ink-artifact-") as temp:
         temp = Path(temp)
         source, bundle = temp / "source.txt", temp / "prepared.tqtx"
         content = b"terminal-only sender artifact validation\n" * 2000
@@ -65,7 +74,7 @@ for arch, sender in SENDERS.items():
 
 # The SSH server accepts only an invocation of this sender's TUI playback.
 # No SCP/SFTP subsystem, forwarding, user config or public listening address.
-with tempfile.TemporaryDirectory(prefix="tqr-ssh-") as temp:
+with tempfile.TemporaryDirectory(prefix="shadow-ink-ssh-") as temp:
     temp = Path(temp)
     host, client = temp / "host", temp / "client"
     checked(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", host])
@@ -113,6 +122,7 @@ ForceCommand /usr/bin/python3 {force}
                     time.sleep(.05)
             prefix = ["ssh", "-F", "/dev/null", "-tt", "-p", str(port), "-i", client, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={known}", "127.0.0.1"]
             acceptance("static-x86-ssh", SENDERS["x86_64"], prefix)
+            text_acceptance("static-x86-ssh", SENDERS["x86_64"], prefix)
         except Exception:
             print((temp / "sshd.log").read_text())
             raise
@@ -125,5 +135,6 @@ ForceCommand /usr/bin/python3 {force}
                 server.wait()
 
 acceptance("static-arm-qemu", SENDERS["aarch64"], [EMULATOR])
-(REPORT / "artifacts.json").write_text(json.dumps({"all_passed": True, "artifacts": artifacts, "x86_64_ssh_tui_only_end_to_end": True, "aarch64_qemu_tui_end_to_end": True, "scope": "Loopback SSH and local emulator, not the user's real host or display."}, indent=2) + "\n")
+text_acceptance("static-arm-qemu", SENDERS["aarch64"], [EMULATOR])
+(REPORT / "artifacts.json").write_text(json.dumps({"all_passed": True, "artifacts": artifacts, "text_static_senders_verified": True, "x86_64_ssh_tui_only_end_to_end": True, "aarch64_qemu_tui_end_to_end": True, "scope": "Loopback SSH and local emulator, not the user's real host or display."}, indent=2) + "\n")
 print("Static artifact acceptance passed", flush=True)

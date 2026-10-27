@@ -1,6 +1,11 @@
 //! Real external-tool acceptance. Run with:
 //! cargo test --test acceptance -- --ignored --nocapture --test-threads=1
 #![cfg(feature = "receiver")]
+use shadow_ink::{
+    bundle::{self, Bundle},
+    sender::Schedule,
+    sources,
+};
 use std::{
     fs,
     io::Write,
@@ -9,16 +14,11 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tqr::{
-    bundle::{self, Bundle},
-    sender::Schedule,
-    sources,
-};
 
 fn bin() -> PathBuf {
     std::env::var_os("TQR_ACCEPTANCE_BIN")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_tqr")))
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_shadow-ink")))
 }
 fn run(args: &[&str]) -> std::process::Output {
     Command::new(bin()).args(args).output().unwrap()
@@ -365,7 +365,7 @@ fn real_two_pane_playback_restart_and_resize() {
     );
     evidence(
         "tmux",
-        serde_json::json!({"test":"two local tmux panes; sender in left PTY, receiver in right PTY","sender":std::env::var_os("TQR_ACCEPTANCE_SENDER").map(PathBuf::from).unwrap_or(cli),"playback_prefix":std::env::var("TQR_ACCEPTANCE_PLAYBACK_PREFIX").unwrap_or_else(|_|"[]".into()),"sha256":hex::encode(tqr::protocol::digest(&input)),"source_bytes":input.len(),"first_partial_valid_frames":captured_run,"first_report":first_report,"final_report":report,"resize_pause_verified":true,"sigkill_resume_verified":true,"pause_resume_quit_verified":true,"pattern_and_probe_verified":true,"calibration":calibration,"doctor":doctor,"scope":"Isolated local test environment; any SSH or emulator prefix is recorded above. The user's actual remote host and laptop display were not available."}),
+        serde_json::json!({"test":"two local tmux panes; sender in left PTY, receiver in right PTY","sender":std::env::var_os("TQR_ACCEPTANCE_SENDER").map(PathBuf::from).unwrap_or(cli),"playback_prefix":std::env::var("TQR_ACCEPTANCE_PLAYBACK_PREFIX").unwrap_or_else(|_|"[]".into()),"sha256":hex::encode(shadow_ink::protocol::digest(&input)),"source_bytes":input.len(),"first_partial_valid_frames":captured_run,"first_report":first_report,"final_report":report,"resize_pause_verified":true,"sigkill_resume_verified":true,"pause_resume_quit_verified":true,"pattern_and_probe_verified":true,"calibration":calibration,"doctor":doctor,"scope":"Isolated local test environment; any SSH or emulator prefix is recorded above. The user's actual remote host and laptop display were not available."}),
     );
 }
 
@@ -405,7 +405,7 @@ fn movie(path: &Path, frames: &[Vec<u8>]) {
     {
         let mut stdin = ff.stdin.take().unwrap();
         for bytes in frames {
-            let qr = tqr::render::image(bytes, 12, "M", 4).unwrap();
+            let qr = shadow_ink::render::image(bytes, 12, "M", 4).unwrap();
             let mut canvas = image::GrayImage::from_pixel(352, 352, image::Luma([210]));
             image::imageops::overlay(&mut canvas, &qr, 24, 32);
             stdin.write_all(canvas.as_raw()).unwrap();
@@ -513,6 +513,6 @@ fn h264_video_loss_duplicates_corruption_and_resume() {
     );
     evidence(
         "video",
-        serde_json::json!({"test":"H.264 video, deterministic 20% data-frame erasure, duplicates, a CRC-invalid QR, mixed transfer, two recordings into one state directory","dropped_display_frames":dropped,"sha256":hex::encode(tqr::protocol::digest(&input)),"first_report":first,"final_report":report}),
+        serde_json::json!({"test":"H.264 video, deterministic 20% data-frame erasure, duplicates, a CRC-invalid QR, mixed transfer, two recordings into one state directory","dropped_display_frames":dropped,"sha256":hex::encode(shadow_ink::protocol::digest(&input)),"first_report":first,"final_report":report}),
     );
 }

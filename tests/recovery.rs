@@ -1,13 +1,13 @@
 #![cfg(feature = "receiver")]
-use std::{
-    fs,
-    io::{Seek, SeekFrom, Write},
-};
-use tqr::{
+use shadow_ink::{
     bundle::{self, Bundle},
     protocol::{transfer_id, Frame},
     sender::Schedule,
     store::{Ingest, Store},
+};
+use std::{
+    fs,
+    io::{Seek, SeekFrom, Write},
 };
 
 fn setup(input: &[u8], compression: &str) -> (tempfile::TempDir, std::path::PathBuf, Vec<Frame>) {
