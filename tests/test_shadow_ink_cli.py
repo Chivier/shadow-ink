@@ -137,6 +137,45 @@ class OneCommand(unittest.TestCase):
         with tarfile.open(self.output/'folder.tar') as archive:
             self.assertEqual(archive.extractfile('folder/notes.txt').read(), b'hello'*10000)
 
+    def test_sender_exits_when_terminal_master_closes(self):
+        import fcntl
+        import pty
+        import select
+        import struct
+        import termios
+        source = self.root/'hangup.bin'
+        source.write_bytes(os.urandom(4096))
+        bundle = self.root/'hangup.tqtx'
+        subprocess.run([BINARY, 'prepare', str(source), '--out', str(bundle),
+                        '--symbol-bytes', '165'], check=True, capture_output=True)
+        for backend in ('qr', 'text', 'text-stream'):
+            with self.subTest(backend=backend):
+                master, slave = pty.openpty()
+                fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 120, 320, 0, 0))
+                proc = subprocess.Popen([BINARY, 'send', str(bundle), '--backend', backend, '--fps', '30', '--loop'],
+                                        stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+                os.close(slave)
+                try:
+                    displayed = b''
+                    marker = b'TQ1 ' if backend == 'qr' else b'SI1 '
+                    deadline = time.monotonic()+10
+                    while marker not in displayed and time.monotonic() < deadline:
+                        if select.select([master], [], [], .1)[0]:
+                            displayed += os.read(master, 65536)
+                    self.assertIn(marker, displayed, 'sender did not begin playback')
+                    os.close(master)
+                    master = None
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        self.fail('sender remained alive after PTY hangup: '+backend)
+                finally:
+                    if master is not None:
+                        os.close(master)
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait()
+
     def test_new_entrypoint_help_and_bad_hosts(self):
         help_result = subprocess.run([BINARY, 'get', '--help'], env=self.env, capture_output=True, text=True)
         self.assertEqual(help_result.returncode, 0)

@@ -38,7 +38,9 @@ for arch in ["aarch64", "x86_64", "universal2"]:
     stage = DIST / name
     stage.mkdir(exist_ok=True)
     binary = stage / "shadow-ink"
-    shutil.copy2(ROOT / f"target/{arch}-apple-darwin/release/shadow-ink", binary)
+    pending = binary.with_suffix(".pending")
+    shutil.copy2(ROOT / f"target/{arch}-apple-darwin/release/shadow-ink", pending)
+    pending.replace(binary)
     signed = subprocess.run([signer, "sign", "--config-file", "/dev/null", "--timestamp-url", "none", "--digest", "sha256", "--binary-identifier", "org.shadow-ink.shadow-ink", str(binary)], env=env, capture_output=True, text=True)
     (REPORT / f"macos-sign-{arch}.log").write_text(signed.stdout + signed.stderr)
     if signed.returncode:

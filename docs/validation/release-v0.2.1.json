@@ -1,0 +1,421 @@
+{
+  "version": "0.2.1",
+  "status": "Local release gates and static sender acceptance passed; native Mac package acceptance pending",
+  "checks": {
+    "source_sha256": "37c10b87bec599bc1428354176828e3f4e9b4f7b21d3f8d7877159450797c556",
+    "all_passed": true,
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.127,
+        "log": "gate-1.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 15.359,
+        "log": "gate-2.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--no-default-features"
+        ],
+        "exit_code": 0,
+        "seconds": 2.328,
+        "log": "gate-3.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--all-features",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 1.695,
+        "log": "gate-4.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--no-default-features",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.411,
+        "log": "gate-5.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "build",
+          "--release",
+          "--locked"
+        ],
+        "exit_code": 0,
+        "seconds": 0.091,
+        "log": "gate-6.log"
+      },
+      {
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_*.py",
+          "-v"
+        ],
+        "exit_code": 0,
+        "seconds": 14.889,
+        "log": "gate-7.log"
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "acceptance",
+          "--",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "seconds": 16.237,
+        "log": "gate-8.log"
+      }
+    ]
+  },
+  "static": {
+    "all_passed": true,
+    "artifacts": {
+      "x86_64": {
+        "sha256": "2812224a93b8be40c29d160ccc45d77d212ce1e6bfc2f9ead566658f5d20008b",
+        "bytes": 2021544,
+        "static_elf": true,
+        "help_prepare_inspect_passed": true,
+        "execution": "native"
+      },
+      "aarch64": {
+        "sha256": "6af60b2455af74e6b42e2e973edbc5203ff93ca1518ef3bc607ea75b54ce876c",
+        "bytes": 1789032,
+        "static_elf": true,
+        "help_prepare_inspect_passed": true,
+        "execution": "qemu-aarch64 8.2.2"
+      }
+    },
+    "text_static_senders_verified": true,
+    "x86_64_ssh_tui_only_end_to_end": true,
+    "aarch64_qemu_tui_end_to_end": true,
+    "scope": "Loopback SSH and local emulator, not the user's real host or display."
+  },
+  "text_static": {
+    "arm-qemu": {
+      "sender_sha256": "6af60b2455af74e6b42e2e973edbc5203ff93ca1518ef3bc607ea75b54ce876c",
+      "sender_prefix": [
+        "/home/chivier/Projects/shadow-ink/target/build-tools/qemu/usr/bin/qemu-aarch64-static"
+      ],
+      "scope": "local real tmux PTY; no SSH/network or four-hour stability claim",
+      "backend": "pipe",
+      "bytes": 1048576,
+      "sha256": "64b832c870a1d647391e34fa590b8a6b95f080d98f1329fcef66404b04058cd8",
+      "verified": true,
+      "wall_seconds": 1.2426482331939042,
+      "verified_bytes_per_second": 843823.6759126177,
+      "receiver": {
+        "complete": true,
+        "interrupted": false,
+        "output": "/tmp/shadow-ink-bench-cu110403/received/random.bin",
+        "status": {
+          "transfer_id": "7baf96a6d98c66bff8bfcbe36c58071f",
+          "filename": "random.bin",
+          "completed_generations": 6,
+          "total_generations": 6,
+          "verified_transport_bytes": 1048576,
+          "cached_symbols": 0,
+          "missing_generations": "",
+          "finalized": true,
+          "output": "/tmp/shadow-ink-bench-cu110403/received/random.bin"
+        },
+        "statistics": {
+          "captures": 116,
+          "qr_codes": 0,
+          "text_lines": 412,
+          "valid_frames": 408,
+          "new_symbols": 385,
+          "new_data_symbols": 384,
+          "new_metadata_symbols": 1,
+          "observed_sender_fps": 384.2799277030662,
+          "duplicate_symbols": 23,
+          "repeated_captures": 0,
+          "unstable_captures": 0,
+          "crc_failures": 0,
+          "rejected_frames": 0,
+          "conflicting_symbols": 0,
+          "foreign_frames": 0,
+          "observed_forward_sequence_gaps": 0,
+          "last_capture_index": null,
+          "last_video_pts": null,
+          "elapsed_seconds": 1.2084933119999999,
+          "recovered_bytes_per_second": 867672.1580400439
+        }
+      },
+      "binary_sha256": "566d206fc9270ee15cf710a79ae94c20937d8b04f4896b6c740d01195c1bf02d"
+    },
+    "x86-ssh": {
+      "sender_sha256": "2812224a93b8be40c29d160ccc45d77d212ce1e6bfc2f9ead566658f5d20008b",
+      "sender_prefix": [
+        "ssh",
+        "-F",
+        "/dev/null",
+        "-tt",
+        "-p",
+        "48879",
+        "-i",
+        "/tmp/shadow-ink-ssh-k7xri2nq/client",
+        "-o",
+        "IdentitiesOnly=yes",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "UserKnownHostsFile=/tmp/shadow-ink-ssh-k7xri2nq/known_hosts",
+        "127.0.0.1"
+      ],
+      "scope": "local real tmux PTY; no SSH/network or four-hour stability claim",
+      "backend": "pipe",
+      "bytes": 1048576,
+      "sha256": "f61e082a62d89216e620c2d23af1035c29813de44be46b95c409129d77570286",
+      "verified": true,
+      "wall_seconds": 1.227166399359703,
+      "verified_bytes_per_second": 854469.2883924413,
+      "receiver": {
+        "complete": true,
+        "interrupted": false,
+        "output": "/tmp/shadow-ink-bench-7r6pfvq2/received/random.bin",
+        "status": {
+          "transfer_id": "539adaa68471001804536caee9c4e5ff",
+          "filename": "random.bin",
+          "completed_generations": 6,
+          "total_generations": 6,
+          "verified_transport_bytes": 1048576,
+          "cached_symbols": 0,
+          "missing_generations": "",
+          "finalized": true,
+          "output": "/tmp/shadow-ink-bench-7r6pfvq2/received/random.bin"
+        },
+        "statistics": {
+          "captures": 119,
+          "qr_codes": 0,
+          "text_lines": 416,
+          "valid_frames": 408,
+          "new_symbols": 385,
+          "new_data_symbols": 384,
+          "new_metadata_symbols": 1,
+          "observed_sender_fps": 445.8985255008934,
+          "duplicate_symbols": 23,
+          "repeated_captures": 0,
+          "unstable_captures": 0,
+          "crc_failures": 0,
+          "rejected_frames": 0,
+          "conflicting_symbols": 0,
+          "foreign_frames": 0,
+          "observed_forward_sequence_gaps": 0,
+          "last_capture_index": null,
+          "last_video_pts": null,
+          "elapsed_seconds": 1.195941422,
+          "recovered_bytes_per_second": 876778.7290504936
+        }
+      },
+      "binary_sha256": "566d206fc9270ee15cf710a79ae94c20937d8b04f4896b6c740d01195c1bf02d"
+    }
+  },
+  "macos": {
+    "build_and_structure_checks_passed": true,
+    "native_macos_runtime_verified": false,
+    "source_sha256": "37c10b87bec599bc1428354176828e3f4e9b4f7b21d3f8d7877159450797c556",
+    "build_command": [
+      "cargo",
+      "zigbuild",
+      "--release",
+      "--locked",
+      "--features",
+      "receiver",
+      "--target",
+      "universal2-apple-darwin"
+    ],
+    "macos_deployment_target": "11.0",
+    "sdk_root": "MacOSX11.3.sdk",
+    "signing": "SHA-256 ad-hoc; no Developer ID or notarization",
+    "artifacts": {
+      "aarch64": {
+        "file": "shadow-ink",
+        "bytes": 5036464,
+        "sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962",
+        "slices": [
+          {
+            "architecture": "aarch64",
+            "minimum_macos": "11.0.0",
+            "linker_sdk_version": "14.0.0",
+            "dynamic_libraries": [
+              "/usr/lib/libobjc.A.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libcharset.1.dylib",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "code_signature": [
+              {
+                "identifier": "org.shadow-ink.shadow-ink",
+                "code_directory_version": "0x20400",
+                "code_pages": 1219,
+                "page_hashes_verified": true,
+                "ad_hoc": true
+              }
+            ],
+            "slice_sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962"
+          }
+        ],
+        "native_macos_runtime_verified": false,
+        "rcodesign_verifier_exit_code": 1,
+        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "archive": "shadow-ink-0.2.1-macos-aarch64.tar.gz",
+        "archive_sha256": "2b20c82ca565c2a71ebb9f92be1259565ff9f2a9b9c2bbf3e6c89d78c7db4235"
+      },
+      "x86_64": {
+        "file": "shadow-ink",
+        "bytes": 5405920,
+        "sha256": "1b990caee1ee6d7bf284267a4ad9c3ff49f35b2946ddd386a27e5ac296d9123a",
+        "slices": [
+          {
+            "architecture": "x86_64",
+            "minimum_macos": "11.0.0",
+            "linker_sdk_version": "14.0.0",
+            "dynamic_libraries": [
+              "/usr/lib/libobjc.A.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libcharset.1.dylib",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "code_signature": [
+              {
+                "identifier": "org.shadow-ink.shadow-ink",
+                "code_directory_version": "0x20400",
+                "code_pages": 1309,
+                "page_hashes_verified": true,
+                "ad_hoc": true
+              }
+            ],
+            "slice_sha256": "1b990caee1ee6d7bf284267a4ad9c3ff49f35b2946ddd386a27e5ac296d9123a"
+          }
+        ],
+        "native_macos_runtime_verified": false,
+        "rcodesign_verifier_exit_code": 1,
+        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "archive": "shadow-ink-0.2.1-macos-x86_64.tar.gz",
+        "archive_sha256": "d1db0f5ccb3eaa49b1f7212abca171f3ada4abbc9bc2d1085e12eed4d987691c"
+      },
+      "universal2": {
+        "file": "shadow-ink",
+        "bytes": 10459568,
+        "sha256": "1d94e7f8712becfe9e5030591693afbd17757160c457996b0c0075362dc565e5",
+        "slices": [
+          {
+            "architecture": "x86_64",
+            "minimum_macos": "11.0.0",
+            "linker_sdk_version": "14.0.0",
+            "dynamic_libraries": [
+              "/usr/lib/libobjc.A.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libcharset.1.dylib",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "code_signature": [
+              {
+                "identifier": "org.shadow-ink.shadow-ink",
+                "code_directory_version": "0x20400",
+                "code_pages": 1309,
+                "page_hashes_verified": true,
+                "ad_hoc": true
+              }
+            ],
+            "slice_sha256": "1b990caee1ee6d7bf284267a4ad9c3ff49f35b2946ddd386a27e5ac296d9123a"
+          },
+          {
+            "architecture": "aarch64",
+            "minimum_macos": "11.0.0",
+            "linker_sdk_version": "14.0.0",
+            "dynamic_libraries": [
+              "/usr/lib/libobjc.A.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libcharset.1.dylib",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "code_signature": [
+              {
+                "identifier": "org.shadow-ink.shadow-ink",
+                "code_directory_version": "0x20400",
+                "code_pages": 1219,
+                "page_hashes_verified": true,
+                "ad_hoc": true
+              }
+            ],
+            "slice_sha256": "9979fba5a07a8f8b24654fd9c942a9990b1fb509691b8ecf6da2f41222a6e962"
+          }
+        ],
+        "native_macos_runtime_verified": false,
+        "rcodesign_verifier_exit_code": 1,
+        "verification_method": "independent SHA-256 CodeDirectory page verification; native Apple codesign pending",
+        "archive": "shadow-ink-0.2.1-macos-universal2.tar.gz",
+        "archive_sha256": "dbec1bbaa5a4017bb846a467ce4340b73fd5d49348470121c57d64ced5fbf2d7"
+      }
+    }
+  },
+  "pty_hangup_regression": "QR, text and text-stream now exit after closing the PTY master. Before the fix QR and text-stream remained alive beyond the three-second deadline.",
+  "linux_package_selftest": {
+    "all_passed": true,
+    "native_macos_runtime_verified": false,
+    "platform": "Linux-6.8.0-146-generic-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "binary_sha256": "566d206fc9270ee15cf710a79ae94c20937d8b04f4896b6c740d01195c1bf02d",
+    "codesign_verified": false,
+    "original_bytes": 20000,
+    "original_sha256": "4cfd36429b493d7232195a49be8270f51031a8bcc0878052b4c753eff45b9b85",
+    "zstd_and_tmux_resume_verified": true,
+    "text_and_targeted_resume_verified": true,
+    "cli_test_log": "test_explicit_resume_requires_record_and_conflicts_with_fresh (__main__.OneCommand.test_explicit_resume_requires_record_and_conflicts_with_fresh) ... ok\ntest_new_entrypoint_help_and_bad_hosts (__main__.OneCommand.test_new_entrypoint_help_and_bad_hosts) ... ok\ntest_pipe_timeout_resume_hash_and_literal_path (__main__.OneCommand.test_pipe_timeout_resume_hash_and_literal_path) ... ok\ntest_screen_backend_and_directory_compression (__main__.OneCommand.test_screen_backend_and_directory_compression) ... ok\ntest_sender_exits_when_terminal_master_closes (__main__.OneCommand.test_sender_exits_when_terminal_master_closes) ... ok\ntest_sigint_targeted_resume_and_corrupt_completed_group (__main__.OneCommand.test_sigint_targeted_resume_and_corrupt_completed_group) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 15.458s\n\nOK\n",
+    "video_runtime_tested": false,
+    "ffmpeg_available": true
+  }
+}

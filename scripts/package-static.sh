@@ -9,7 +9,8 @@ version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)
 for target in x86_64 aarch64; do
     name="shadow-ink-send-$version-linux-$target"
     mkdir -p "dist/$name/docs"
-    cp "target/$target-unknown-linux-musl/release/shadow-ink" "dist/$name/shadow-ink"
+    cp "target/$target-unknown-linux-musl/release/shadow-ink" "dist/$name/shadow-ink.pending"
+    mv -f "dist/$name/shadow-ink.pending" "dist/$name/shadow-ink"
     cp README.md LICENSE dist/THIRD_PARTY_NOTICES.txt "dist/$name/"
     cp docs/PROTOCOL.md docs/BUILD.md docs/ACCEPTANCE.md docs/MACOS.md docs/GET.md docs/PERFORMANCE.md "dist/$name/docs/"
     if test -d docs/validation; then cp -R docs/validation "dist/$name/docs/"; fi

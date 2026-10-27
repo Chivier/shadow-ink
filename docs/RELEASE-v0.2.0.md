@@ -15,3 +15,7 @@ shadow-ink server-a /path/to/file.bin --resume
 发行包包括 Linux x86_64 完整版、Linux x86_64/aarch64 静态发送端，以及 macOS Apple Silicon、Intel、universal2 完整版，附 SHA-256 校验和、许可证及验证记录。
 
 本地不可压缩 64 MiB 测试曾测得约 793 KB/s（原始记录带二进制哈希），这不是实际远程链路或四小时持续稳定性保证。各平台的当前发行二进制和自测结果分别记录，旧版本验证不作为新版本证明。
+
+Linux、Apple Silicon 和 Intel 源码 CI 已通过；六个发行包已校验，Mac 四次原生发行自测全部通过。见 [发布验证](validation/release-v0.2.0.json) 和 [Mac 原生报告](validation/macos-v0.2.0.json)。
+
+此版本保留为预发布记录。补充验收发现 PTY 挂断后发送端可能残留并占用 CPU；正式版本请使用修正后的 v0.2.1。

@@ -9,8 +9,10 @@ os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
 name="shadow-ink-$version-$os-$arch"
 mkdir -p "dist/$name/docs"
-cp target/release/shadow-ink "dist/$name/shadow-ink"
-cp target/sender/release/shadow-ink "dist/$name/shadow-ink-send"
+cp target/release/shadow-ink "dist/$name/shadow-ink.pending"
+mv -f "dist/$name/shadow-ink.pending" "dist/$name/shadow-ink"
+cp target/sender/release/shadow-ink "dist/$name/shadow-ink-send.pending"
+mv -f "dist/$name/shadow-ink-send.pending" "dist/$name/shadow-ink-send"
 cp scripts/macos_selftest.py "dist/$name/selftest.py"
 cp tests/test_shadow_ink_cli.py "dist/$name/cli_selftest.py"
 cp README.md LICENSE "dist/$name/"

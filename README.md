@@ -20,7 +20,7 @@ shadow-ink server-a '/home/user/实验数据' -o ./received
 
 ## 安装
 
-下载 [v0.2.0 发行包](https://github.com/Chivier/shadow-ink/releases/tag/v0.2.0)：Mac 推荐 universal2；本地 Linux 用完整 x86_64 包；远端 Linux 可用 x86_64/aarch64 静态发送包。解压后把程序安装到 PATH。两端都应使用新版 `shadow-ink`。
+下载 [v0.2.1 发行包](https://github.com/Chivier/shadow-ink/releases/tag/v0.2.1)：Mac 推荐 universal2；本地 Linux 用完整 x86_64 包；远端 Linux 可用 x86_64/aarch64 静态发送包。解压后把程序安装到 PATH。两端都应使用新版 `shadow-ink`。
 
 本机完整版本：Rust 1.88+、C/C++ 编译器、CMake。一键接收还需要本机 `tmux`、`ssh`、Python 3.9+，以及远端 Python 3.9+ 和发送程序。当前字符管道支持 Linux/macOS；录像接收另外需要 `ffmpeg`。
 

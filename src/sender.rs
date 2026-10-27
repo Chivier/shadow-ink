@@ -264,6 +264,20 @@ pub fn send(
 }
 
 fn input(timeout: Duration, paused: &mut bool) -> Result<bool> {
+    #[cfg(unix)]
+    {
+        let mut tty = libc::pollfd {
+            fd: libc::STDIN_FILENO,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        // SAFETY: tty is one live pollfd; poll does not take ownership of stdin.
+        let ready = unsafe { libc::poll(&mut tty, 1, 0) };
+        if ready > 0 && tty.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0 {
+            return Ok(true);
+        }
+    }
+
     if event::poll(timeout)? {
         if let Event::Key(k) = event::read()? {
             if k.kind == KeyEventKind::Press {
