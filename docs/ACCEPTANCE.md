@@ -7,7 +7,7 @@ Validated on 2026-10-27, Linux x86_64, Rust 1.91.1, tmux 3.4, FFmpeg 6.1.1, Open
 All seven gates in `scripts/verify.py` passed. `acceptance-output/checks.json` records commands, exit codes, durations and the source/test/vector fingerprint:
 
 ```text
-d0f39dda32f9cb4550ce003d4482aab7983576e7e608b31765d7550694b7790d
+fcda500ac0aae394490b5f02689720ef115c89001cf55dcce0a253f376f44429
 ```
 
 | Gate | Result |
@@ -53,6 +53,10 @@ Machine-readable results and binary SHA-256 values are in `acceptance-output/art
 
 ## Limits of the evidence
 
-The user's actual server A, laptop OS, font and screen recording were not supplied. The tests prove the software and the stated Linux/SSH/tmux/video paths in this environment; they do not claim deployment to that host, physical aarch64 hardware testing, macOS/Windows acceptance, or a measured laptop character-cell ratio. The tmux path reconstructs logical cells and does not require a 1:2 font. For video on the laptop, start at the documented 3fps and verify a small file before increasing speed.
+The user's actual server A, Mac, font and screen recording were not supplied for direct access. The tests prove the software and the stated Linux/SSH/tmux/video paths in this environment; they do not claim deployment to that host, physical aarch64 hardware testing, macOS/Windows acceptance, or a measured laptop character-cell ratio. The tmux path reconstructs logical cells and does not require a 1:2 font. For video on the laptop, start at the documented 3fps and verify a small file before increasing speed.
 
 Run `python3 scripts/verify.py` to repeat the release gates. With Zig, cargo-zigbuild, OpenSSH server/keygen and an ARM emulator available, repeat static artifact acceptance with `python3 scripts/verify_artifacts.py`. Use `TQR_ARM_EMULATOR` to point at an installed emulator.
+
+## macOS distribution
+
+Complete aarch64, x86_64 and universal2 receivers are built for macOS 11+. Cross-build inspection checks architecture, system-only dynamic dependencies and each SHA-256 CodeDirectory page. The private repository runs native macOS source tests on Apple Silicon and Intel, and release events download the exact published binaries for Apple codesign verification and local TUI/zstd/resume selftests. See the release-linked Actions results and native JSON artifacts for the current runtime verdict; build reports do not substitute for native execution.
