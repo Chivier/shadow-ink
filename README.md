@@ -18,6 +18,15 @@ shadow-ink server-a '/home/user/实验数据' -o ./received
 
 `pipe-pane` 获取本地 tmux pane 的原始输出，避免图像重建和 QR 解码。`--backend text` 则用 `capture-pane` 接收完整的字符行，逐行校验，允许同一屏混合不同批次。底层 `recv` 只读取本地 tmux 或本地录像；一键入口负责 SSH 编排，文件内容经过远端终端输出。
 
+## HTML 演示
+
+[在线播放](https://chivier.github.io/shadow-ink/) · [45 秒终端传输演示与录制说明](demo/README.md)：左右 tmux 窗格依次展示 QR V12-M、QR V40-L 与 Base64 字符流，支持暂停、跳转章节和导出 1080p 视频。二维码和字符使用实际协议帧；播放节奏和图像逐块显现为演示编排，不代表性能实测。
+
+```bash
+python3 -m http.server 8766 --bind 127.0.0.1 --directory demo
+# 打开 http://127.0.0.1:8766/
+```
+
 ## 安装
 
 下载 [v0.2.1 发行包](https://github.com/Chivier/shadow-ink/releases/tag/v0.2.1)：Mac 推荐 universal2；本地 Linux 用完整 x86_64 包；远端 Linux 可用 x86_64/aarch64 静态发送包。解压后把程序安装到 PATH。两端都应使用新版 `shadow-ink`。

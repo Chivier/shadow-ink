@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111313">
+  <title>shadow-ink — Through the terminal</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="assets/payload.js"></script>
+  <script defer src="film.js"></script>
+</head>
+<body>
+  <main>
+    <div class="film-wrap">
+      <canvas id="film" width="1920" height="1080" role="img" aria-label="shadow-ink film: a source image passes through two QR configurations and a Base64 stream between left and right tmux panes."></canvas>
+      <p id="loading" role="status">Preparing the terminal…</p>
+    </div>
+    <section class="player" aria-label="Film controls">
+      <div class="transport">
+        <button disabled data-needs-ready id="play" class="primary" aria-label="Play film"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span>Play</span></button>
+        <button disabled data-needs-ready id="replay" aria-label="Replay film"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg></button>
+        <label class="sr-only" for="seek">Film position in seconds</label>
+        <input disabled data-needs-ready id="seek" type="range" min="0" max="45" value="0" step="0.01">
+        <output id="time" for="seek">00:00 / 00:45</output>
+        <button disabled data-needs-ready id="fullscreen" aria-label="Enter fullscreen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button>
+      </div>
+      <div class="source-control"><label for="source">Image</label><select disabled data-needs-ready id="source"><option value="sample">Bundled sample</option><option value="reference">Prepared reference · local</option></select><button id="retry" hidden>Retry loading</button><span>Prepare your own image with <code>demo/prepare.py</code>.</span></div>
+      <nav class="chapters" aria-label="Film chapters">
+        <button disabled data-needs-ready data-time="0" aria-current="true">The image</button>
+        <button disabled data-needs-ready data-time="5">QR · V12-M</button>
+        <button disabled data-needs-ready data-time="15">QR · V40-L</button>
+        <button disabled data-needs-ready data-time="25">Base64 · pipe</button>
+        <button disabled data-needs-ready data-time="36">The other side</button>
+      </nav>
+      <div class="notes">
+        <p id="caption" aria-live="polite">One image. A terminal is all it takes.</p>
+        <p>Real protocol frames. Choreographed playback and image reveal; no speed comparison. <a href="https://github.com/Chivier/shadow-ink">View source</a> · <a href="README.md">Make your own film</a></p>
+      </div>
+      <details><summary>Read the film transcript</summary><p>One image. A terminal is all it takes. A file becomes independently checked shards. First, QR V12-M: 224 bytes per shard, CRC32C and Reed–Solomon recovery. Then, QR V40-L: a denser QR symbol, with 2,893 bytes per shard. Finally, Base64: the same frame protocol written as SI1 text lines through tmux pipe-pane. The receiver restores the original file and verifies its SHA-256. The visual reveal is an illustration; a separate real tmux transfer validates the file.</p></details>
+    </section>
+  </main>
+</body>
+</html>

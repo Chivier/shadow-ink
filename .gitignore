@@ -6,3 +6,9 @@
 *.sqlite*
 __pycache__/
 /.intentionally-empty-file.o
+/demo/assets/reference.png
+/demo/assets/local-payload.js
+/demo/output/
+/.impeccable/review/
+/.impeccable/seeds/
+/.impeccable/detector.json

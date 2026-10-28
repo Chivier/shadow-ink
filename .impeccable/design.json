@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-28T17:07:21.395763+00:00",
+  "title": "Design System: shadow-ink terminal film",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Terminal Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0032 196.88)",
+          "oklch(26% 0.0032 196.88)",
+          "oklch(38% 0.0032 196.88)",
+          "oklch(49% 0.0032 196.88)",
+          "oklch(61% 0.0032 196.88)",
+          "oklch(72% 0.0032 196.88)",
+          "oklch(84% 0.0032 196.88)",
+          "oklch(95% 0.0032 196.88)"
+        ]
+      },
+      "canvas-panel": {
+        "role": "neutral",
+        "displayName": "Pane Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0063 179.01)",
+          "oklch(26% 0.0063 179.01)",
+          "oklch(38% 0.0063 179.01)",
+          "oklch(49% 0.0063 179.01)",
+          "oklch(61% 0.0063 179.01)",
+          "oklch(72% 0.0063 179.01)",
+          "oklch(84% 0.0063 179.01)",
+          "oklch(95% 0.0063 179.01)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Control Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0060 196.74)",
+          "oklch(26% 0.0060 196.74)",
+          "oklch(38% 0.0060 196.74)",
+          "oklch(49% 0.0060 196.74)",
+          "oklch(61% 0.0060 196.74)",
+          "oklch(72% 0.0060 196.74)",
+          "oklch(84% 0.0060 196.74)",
+          "oklch(95% 0.0060 196.74)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Warm Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0103 81.79)",
+          "oklch(26% 0.0103 81.79)",
+          "oklch(38% 0.0103 81.79)",
+          "oklch(49% 0.0103 81.79)",
+          "oklch(61% 0.0103 81.79)",
+          "oklch(72% 0.0103 81.79)",
+          "oklch(84% 0.0103 81.79)",
+          "oklch(95% 0.0103 81.79)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Sage Gray",
+        "tonalRamp": [
+          "oklch(15% 0.0172 172.46)",
+          "oklch(26% 0.0172 172.46)",
+          "oklch(38% 0.0172 172.46)",
+          "oklch(49% 0.0172 172.46)",
+          "oklch(61% 0.0172 172.46)",
+          "oklch(72% 0.0172 172.46)",
+          "oklch(84% 0.0172 172.46)",
+          "oklch(95% 0.0172 172.46)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Coral",
+        "tonalRamp": [
+          "oklch(15% 0.1510 32.98)",
+          "oklch(26% 0.1510 32.98)",
+          "oklch(38% 0.1510 32.98)",
+          "oklch(49% 0.1510 32.98)",
+          "oklch(61% 0.1510 32.98)",
+          "oklch(72% 0.1510 32.98)",
+          "oklch(84% 0.1510 32.98)",
+          "oklch(95% 0.1510 32.98)"
+        ]
+      },
+      "verified": {
+        "role": "secondary",
+        "displayName": "Verified Mint",
+        "tonalRamp": [
+          "oklch(15% 0.0660 156.38)",
+          "oklch(26% 0.0660 156.38)",
+          "oklch(38% 0.0660 156.38)",
+          "oklch(49% 0.0660 156.38)",
+          "oklch(61% 0.0660 156.38)",
+          "oklch(72% 0.0660 156.38)",
+          "oklch(84% 0.0660 156.38)",
+          "oklch(95% 0.0660 156.38)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Structural Green",
+        "tonalRamp": [
+          "oklch(15% 0.0190 169.91)",
+          "oklch(26% 0.0190 169.91)",
+          "oklch(38% 0.0190 169.91)",
+          "oklch(49% 0.0190 169.91)",
+          "oklch(61% 0.0190 169.91)",
+          "oklch(72% 0.0190 169.91)",
+          "oklch(84% 0.0190 169.91)",
+          "oklch(95% 0.0190 169.91)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Film headline",
+        "purpose": "Sora narrative headings in 1920×1080 canvas coordinates."
+      },
+      "terminal": {
+        "displayName": "Terminal data",
+        "purpose": "Commands, frame metadata and literal protocol content."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "background .18s ease-out, color .18s ease-out",
+        "purpose": "HTML button hover feedback; removed for reduced motion."
+      },
+      {
+        "name": "film-duration",
+        "value": "45s",
+        "purpose": "Deterministic editorial film; not a performance measurement."
+      },
+      {
+        "name": "reconstruction-ease",
+        "value": "t * t * (3 - 2 * t)",
+        "purpose": "Clamped smoothstep for the illustrative tile reveal."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-player",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Play / Pause",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary film playback action; the real player updates its accessible name and icon with playback state.",
+      "html": "<button class=\"ds-button ds-primary\" aria-label=\"Play film\">Play</button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:44px;min-height:44px;padding:10px 14px;border:1px solid var(--line,#34413c);border-radius:6px;background:transparent;color:var(--ink,#f2eee7);font:14px Sora,sans-serif;cursor:pointer;transition:background .18s ease-out,color .18s ease-out}.ds-button:hover{background:var(--surface,#191d1d)}.ds-button:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-button:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-primary{min-width:100px;background:var(--accent,#ff876e);color:var(--background,#111313);border-color:var(--accent,#ff876e)}.ds-primary:hover{background:#ffa38e}"
+    },
+    {
+      "name": "Replay",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined replay control.",
+      "html": "<button class=\"ds-button\" aria-label=\"Replay film\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 10a8 8 0 1 1 1 8M4 4v6h6\"/></svg></button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:44px;min-height:44px;padding:10px 14px;border:1px solid var(--line,#34413c);border-radius:6px;background:transparent;color:var(--ink,#f2eee7);font:14px Sora,sans-serif;cursor:pointer;transition:background .18s ease-out,color .18s ease-out}.ds-button:hover{background:var(--surface,#191d1d)}.ds-button:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-button:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}"
+    },
+    {
+      "name": "Chapter navigation",
+      "kind": "nav",
+      "refersTo": "chapter-current",
+      "description": "Text chapters with an exposed current state; preview contains two of the five chapters.",
+      "html": "<nav class=\"ds-chapters\" aria-label=\"Film chapters\"><button class=\"ds-button ds-chapter\">The image</button><button class=\"ds-button ds-chapter\" aria-current=\"true\">QR · V12-M</button></nav>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:44px;min-height:44px;padding:10px 14px;border:1px solid var(--line,#34413c);border-radius:6px;background:transparent;color:var(--ink,#f2eee7);font:14px Sora,sans-serif;cursor:pointer;transition:background .18s ease-out,color .18s ease-out}.ds-button:hover{background:var(--surface,#191d1d)}.ds-button:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-button:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-chapters{display:flex;gap:10px;flex-wrap:wrap}.ds-chapter{color:var(--muted,#a3b1ac);border-color:transparent;padding:8px 13px}.ds-chapter[aria-current=true]{color:var(--accent,#ff876e);background:var(--surface,#191d1d)}"
+    },
+    {
+      "name": "Image selector",
+      "kind": "input",
+      "refersTo": "image-selector",
+      "description": "Native choice between bundled sample and locally prepared reference.",
+      "html": "<label class=\"ds-source\">Image <select class=\"ds-select\"><option>Bundled sample</option><option>Prepared reference · local</option></select></label>",
+      "css": ".ds-source{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted,#a3b1ac);font:14px Sora,sans-serif}.ds-select{min-height:44px;max-width:100%;border:1px solid var(--line,#34413c);border-radius:6px;background:var(--surface,#191d1d);color:var(--ink,#f2eee7);padding:8px 12px;font:inherit;cursor:pointer}.ds-select:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-select:disabled{opacity:.5;cursor:wait}"
+    },
+    {
+      "name": "Film position",
+      "kind": "input",
+      "description": "Native scrubber with an associated time readout. Preview is visual; the film binds time through JavaScript.",
+      "html": "<label class=\"ds-seek-label\">Film position in seconds <input class=\"ds-seek\" type=\"range\" min=\"0\" max=\"45\" value=\"15\" step=\".01\"><output class=\"ds-time\">00:15 / 00:45</output></label>",
+      "css": ".ds-seek-label{display:flex;gap:18px;align-items:center;flex-wrap:wrap;color:var(--muted,#a3b1ac);font:14px Sora,sans-serif}.ds-seek{flex:1;min-width:60px;height:28px;accent-color:var(--accent,#ff876e);cursor:pointer}.ds-seek:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-time{font:12px \"JetBrains Mono\",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}"
+    },
+    {
+      "name": "Transcript disclosure",
+      "kind": "custom",
+      "description": "Native expandable text alternative to the film.",
+      "html": "<details class=\"ds-transcript\"><summary>Read the film transcript</summary><p>One image. A terminal is all it takes. Real protocol frames; choreographed playback and image reveal.</p></details>",
+      "css": ".ds-transcript{color:var(--muted,#a3b1ac);font:14px/1.65 Sora,sans-serif;max-width:75ch}.ds-transcript summary{cursor:pointer;min-height:44px;padding:10px 0}.ds-transcript summary:focus-visible{outline:2px solid var(--accent,#ff876e);outline-offset:5px}.ds-transcript p{margin-top:10px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Terminal projection reel",
+    "overview": "A dark terminal becomes the stage for a file moving between a remote sender and a local receiver. Quiet charcoal fields, warm lettering and fine structural rules keep attention on the image, protocol frames and verified arrival. Paired coral brackets identify the project; the transfer gutter connects the two panes.\n\nThis captures the implemented demo, not a broader application system. The approved experience is a static HTML/Canvas film with English captions, no narration and a deterministic 45-second timeline. Its composition and sequence belong to `.impeccable/surfaces/demo.md`; PRODUCT.md remains the authority for product capabilities and evidence.",
+    "keyCharacteristics": [
+      "One split terminal within a fluid 16:9 film.",
+      "Self-hosted Sora for display and reading; JetBrains Mono for commands and data.",
+      "Coral for transfer emphasis and interaction; mint for recovery and verified state.",
+      "Real sample protocol frames with an explicitly choreographed image reveal.",
+      "Native HTML playback controls, visible captions and a transcript outside Canvas."
+    ],
+    "rules": [
+      {
+        "name": "The State Color Rule",
+        "body": "Preserve coral as transfer/interaction emphasis and mint as recovery/verification emphasis; keep terminal framing quiet.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Use Sora for narrative and controls, JetBrains Mono for literal terminal content and numeric readouts.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do preserve the split-terminal film and reflow its HTML controls independently.",
+      "Do keep commands, frames, byte counts and hashes tied to the selected prepared payload.",
+      "Do keep the choreographed-playback disclosure visible and the HTML transcript available.",
+      "Do preserve the labeled native Image selector, focus outlines and minimum control height."
+    ],
+    "donts": [
+      "Don't present the 45-second timeline, reveal percentage or frame cadence as measured performance.",
+      "Don't replace Sora with Space Grotesk or introduce a third type voice.",
+      "Don't add decorative dashboard cards or shadows to this terminal film.",
+      "Don't imply that source-code licensing covers a user-supplied reference image."
+    ]
+  }
+}
