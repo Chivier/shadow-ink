@@ -47,13 +47,15 @@ python3 demo/verify-transfer.py demo/assets/reference.png
 python3 demo/record.py --reference --output demo/output/shadow-ink-demo.mp4
 ```
 
-For two minimal, separate QR clips (10 seconds each, no titles, explanatory captions, commands, or closing scene):
+For the two README clips (10 seconds each, no titles, explanatory captions, commands, or closing scene):
 
 ```sh
 python3 demo/record.py --reference --mode qr12 --output demo/output/qr-v12.mp4
-python3 demo/record.py --reference --mode qr40 --output demo/output/qr-v40.mp4
+python3 demo/record.py --reference --mode pipe --output demo/output/base64.mp4
 ```
 
 The recorder launches its own loopback HTTP server and headless browser, advances the HTML timeline frame by frame, and sends the rendered frames to FFmpeg. Output is 1920×1080, 30 fps, H.264, 45 seconds, silent, with fast-start metadata. It refuses to overwrite an existing file. Use `--width 1280` or `--fps 24` for smaller output; `--browser /path/to/chromium` selects a browser. Rendering speed depends on the machine; it does not affect the exported film's duration.
 
 `verify-transfer.py` runs the actual one-command CLI through a real isolated local tmux/PTY/pipe-pane, replacing only the SSH hop with a local command shim. It independently checks the recovered file's SHA-256. It records what was really executed in ignored `output/verification.json`. This verifies a local transport path, not remote SSH bandwidth or browser reconstruction.
+
+The historical V40-L preset remains available as `--mode qr40`; the README showcases V12-M and Base64.

@@ -1,50 +1,57 @@
-# shadow-ink
+<h1 align="center">shadow-ink</h1>
 
-**Bring files home through your terminal.**
+<p align="center">Resumable file transfer over terminal output.</p>
 
-Resumable file transfer over terminal output. Base64 by default, QR for visual playback. Automatic tmux setup and SHA-256 verification.
+<p align="center">
+  <a href="https://github.com/Chivier/shadow-ink/actions/workflows/check.yml"><img src="https://github.com/Chivier/shadow-ink/actions/workflows/check.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Chivier/shadow-ink/releases/latest"><img src="https://img.shields.io/github/v/release/Chivier/shadow-ink" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Chivier/shadow-ink" alt="MIT license"></a>
+</p>
 
-[Download](https://github.com/Chivier/shadow-ink/releases/latest) · [Quick start](#quick-start) · [Documentation](#documentation) · [简体中文](README.zh-CN.md)
+<p align="center">
+  <a href="https://chivier.github.io/shadow-ink/">Documentation</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+shadow-ink brings remote files to your machine through Base64 text or QR playback. It handles SSH, tmux, checkpoints and SHA-256 verification in one command.
 
 ```sh
 shadow-ink server-a /path/to/results.bin
 ```
 
+## Demo
+
 **QR · V12-M**
 
 https://github.com/user-attachments/assets/65f0520c-da18-43f1-9ba9-5782b4842690
 
-**QR · V40-L**
+**Base64 · pipe**
 
-https://github.com/user-attachments/assets/fb685545-d100-4fc0-8ea6-0a02088b7cc6
+https://github.com/user-attachments/assets/bbfda50e-38a6-4ee9-8366-99c880bc5c2e
 
-Two 10-second visualizations with real protocol frames. Playback and image reconstruction are choreographed, not a speed comparison. [HTML source & recording](demo/README.md)
+<sub>Real protocol frames; choreographed playback and image reveal. These clips are not throughput benchmarks. [Recording source](demo/README.md).</sub>
 
-## Quick start
+## Features
 
-Install `shadow-ink` on **both machines**. The local machine also needs tmux, SSH, and Python 3.9+; the remote machine needs Python 3.9+ and working non-interactive SSH authentication.
+- **One command.** Prepares a remote snapshot and starts its own local tmux session.
+- **Resumable.** Rechecks saved shards and requests missing or damaged groups.
+- **Verified output.** CRC32C, Reed–Solomon recovery and complete-file SHA-256 checks.
+- **Three transports.** Base64 stream, sampled text and QR, with a shared frame protocol.
+- **Files and directories.** Directory archives and same-name file protection on macOS and Linux.
 
-```sh
-# Download a file. server-a is a hostname or an existing SSH config alias.
-shadow-ink server-a /home/user/results.bin
+## Installation
 
-# Download a directory to a chosen local destination.
-shadow-ink server-a '/home/user/experiment data' -o ./received
-```
-
-Files go to `~/Downloads/from-server-a/` by default. Directories arrive as `.tar` archives. Interrupted transfers resume when you run the same command again; existing files with different content are preserved.
-
-## Install
-
-Get the [latest release](https://github.com/Chivier/shadow-ink/releases/latest), extract the package, and put the executable on your PATH.
+Download the [latest release](https://github.com/Chivier/shadow-ink/releases/latest) for each machine:
 
 | Machine | Package |
 | --- | --- |
-| macOS receiver or sender | `shadow-ink-*-macos-universal2.tar.gz` — Apple Silicon and Intel |
-| Linux receiver | `shadow-ink-*-linux-x86_64.tar.gz` — full build |
-| Linux sender | `shadow-ink-send-*-linux-x86_64.tar.gz` or `shadow-ink-send-*-linux-aarch64.tar.gz` — static sender |
+| macOS | `shadow-ink-*-macos-universal2.tar.gz` — Apple Silicon and Intel |
+| Linux receiver | `shadow-ink-*-linux-x86_64.tar.gz` |
+| Linux sender | `shadow-ink-send-*-linux-{x86_64,aarch64}.tar.gz` — static build |
 
-Each package includes `SHA256SUMS`. On either machine, install its binary as `shadow-ink`:
+Verify the included `SHA256SUMS`, extract the package, then install its executable as `shadow-ink`:
 
 ```sh
 mkdir -p ~/.local/bin
@@ -53,92 +60,51 @@ install -m 755 ./shadow-ink ~/.local/bin/shadow-ink
 shadow-ink --version
 ```
 
-<details>
-<summary>Build from source</summary>
+Both machines need `shadow-ink` and Python 3.9+. The receiver also needs tmux and SSH; the remote host must support non-interactive SSH authentication.
 
-Requires Rust 1.88+, a C/C++ compiler, and CMake. FFmpeg is optional and needed only for video input.
+[Build from source](docs/BUILD.md) · [macOS setup](docs/MACOS.md)
 
-```sh
-git clone https://github.com/Chivier/shadow-ink.git
-cd shadow-ink
-cargo build --release --locked
-mkdir -p ~/.local/bin
-install -m 755 target/release/shadow-ink ~/.local/bin/shadow-ink
+## Usage
 
-# Smaller sender-only build for the remote machine.
-cargo build --release --locked --no-default-features --target-dir target/sender
-```
-
-See [build instructions](docs/BUILD.md) and [macOS setup](docs/MACOS.md) for platform details.
-
-</details>
-
-## Choose a transport
-
-| Backend | File data travels as |
-| --- | --- |
-| `pipe` · default | CRC-protected Base64 lines, read from tmux `pipe-pane` |
-| `text` | Complete text lines sampled from a 320×120 tmux canvas |
-| `qr` | QR frames sampled from a tmux pane |
+Use any hostname or alias from your SSH configuration:
 
 ```sh
-shadow-ink server-a /path/file                       # Base64 stream
-shadow-ink server-a /path/file --backend text        # Text sampling
-shadow-ink server-a /path/file --backend qr --speed safe
-```
+# Download a file with the default Base64 stream.
+shadow-ink server-a /home/user/results.bin
 
-All three use the same binary frame protocol, Reed–Solomon recovery, per-frame CRC32C, and SHA-256 checks. The default Base64 path reads terminal output directly, avoiding QR rendering and decoding. [Measured results and their scope](docs/PERFORMANCE.md)
+# Download a directory to a chosen local destination.
+shadow-ink server-a '/home/user/experiment data' -o ./received
 
-## Resume, or start fresh
-
-```sh
-# Continue the saved snapshot, even if the source has since changed.
+# Continue the saved snapshot, or take a new one.
 shadow-ink server-a /path/file --resume
-
-# Take a new snapshot of the current source; keep the old state.
 shadow-ink server-a /path/file --fresh
+
+# Choose visual QR playback or sampled text.
+shadow-ink server-a /path/file --backend qr --speed safe
+shadow-ink server-a /path/file --backend text
 ```
 
-The receiver rechecks saved shards and restored groups, then requests missing or damaged groups. Output is published only after the original file's SHA-256 matches. Same-name files with different content are retained; the new file goes into a `transfer-ID/` subdirectory.
+Downloads default to `~/Downloads/from-server-a/`. Directories arrive as `.tar` archives. Interrupted transfers resume when you repeat the same command. Existing files with different content are preserved.
 
-Local state lives in `~/.local/state/shadow-ink-get/` (or `$XDG_STATE_HOME/shadow-ink-get/`); remote snapshots live in `~/.cache/shadow-ink-get/`. Keep both to resume. Caches are not automatically deleted.
+`--resume` keeps the original snapshot even if the source changes; `--fresh` creates a new one. Keep the local checkpoint and remote snapshot to resume. The one-command size limit defaults to 8 GiB.
 
-## How it works
-
-```text
-Remote file → snapshot → optional zstd → Reed–Solomon shards
-                                             ↓
-                                    terminal text or QR
-                                             ↓
-Local tmux → CRC / deduplication / recovery → SHA-256 → original file
-```
-
-The one-command entry point handles SSH, snapshots, tmux, reception, and cleanup of its own sessions. File data travels through the remote terminal output; the lower-level receiver reads local tmux or a local recording.
-
-The one-command size limit is 8 GiB (`--max-bytes` changes it); manual `recv` defaults to 1 GiB. Archives are not automatically extracted. Windows, camera capture, and arbitrary desktop screenshot capture are outside the current scope.
+[All options and examples →](https://chivier.github.io/shadow-ink/#parameters)
 
 ## Documentation
 
-| Guide | Covers |
-| --- | --- |
-| [One-command transfers](docs/GET.md) | Options, directories, resume, collision handling |
-| [Manual transfers & calibration](docs/MANUAL.md) | Existing SSH panes, QR geometry, video input, exit codes |
-| [Protocol](docs/PROTOCOL.md) | Frames, manifests, FEC, persistence |
-| [Build & platform setup](docs/BUILD.md) | Native builds, static senders, validation |
-| [Performance](docs/PERFORMANCE.md) | Completed measurements and their limits |
-| [Demo source & recording](demo/README.md) | HTML player and separate minimal MP4 exports |
+- [Getting started](https://chivier.github.io/shadow-ink/#quick-start)
+- [Backend selection](https://chivier.github.io/shadow-ink/#transports)
+- [Resume and snapshots](https://chivier.github.io/shadow-ink/#resume)
+- [Parameter reference](https://chivier.github.io/shadow-ink/#parameters)
+- [Manual reception and video input](docs/MANUAL.md)
+- [Protocol](docs/PROTOCOL.md) · [Performance measurements](docs/PERFORMANCE.md)
+
+The documentation site is maintained in [`docs/`](docs/README.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). For a local check:
-
-```sh
-cargo test --locked
-cargo clippy --locked --all-targets --all-features -- -D warnings
-```
-
-[Release validation](docs/validation/release-v0.2.1.json) · [Native macOS validation](docs/validation/macos-v0.2.1.json) · [Earlier acceptance record](docs/ACCEPTANCE.md)
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and validation. Include your version, OS, backend and a small reproducible example when reporting a problem.
 
 ## License
 
-[MIT](LICENSE). Bundled font licenses are included with the demo; the reference photograph shown in the videos is not covered by the code's MIT license.
+[MIT](LICENSE). Demo fonts retain their bundled licenses. The reference photograph shown in the clips is separate from the code's MIT license.

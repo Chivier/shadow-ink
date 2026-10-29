@@ -15,7 +15,7 @@ signal.signal(signal.SIGINT, signal.default_int_handler)
 ROOT = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--reference', action='store_true', help='Use the locally prepared reference image')
-parser.add_argument('--mode', choices=['film', 'qr12', 'qr40'], default='film', help='Full film, or a minimal 10-second QR transfer clip')
+parser.add_argument('--mode', choices=['film', 'qr12', 'qr40', 'pipe'], default='film', help='Full film, or a minimal 10-second QR/Base64 transfer clip')
 parser.add_argument('--output', type=Path, default=ROOT / 'output/shadow-ink-demo.mp4')
 parser.add_argument('--fps', type=int, default=30, choices=[24, 30, 60])
 parser.add_argument('--width', type=int, default=1920)

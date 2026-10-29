@@ -4,7 +4,7 @@
   const params = new URLSearchParams(location.search);
   const reference = params.get('reference') === '1';
   const recording = params.get('record') === '1';
-  const minimalMode = recording && params.get('minimal') === '1' && ['qr12','qr40'].includes(params.get('mode')) ? params.get('mode') : null;
+  const minimalMode = recording && params.get('minimal') === '1' && ['qr12','qr40','pipe'].includes(params.get('mode')) ? params.get('mode') : null;
   if (recording) document.body.classList.add('record');
   const canvas = document.querySelector('#film');
   const c = canvas.getContext('2d', { alpha: false });
@@ -17,6 +17,7 @@
   let data = window.SHADOW_INK_PAYLOAD;
   let ready = false, playing = false, seconds = 0, lastClock = 0, raf = 0;
   const qrCache = new Map();
+  let base64Frames;
   const tileRanks = Array.from({length:400}, (_,i)=>i);
   let tileSeed=2026;
   for(let i=399;i>0;i--){tileSeed=(Math.imul(tileSeed,1664525)+1013904223)>>>0;const j=tileSeed%(i+1);[tileRanks[i],tileRanks[j]]=[tileRanks[j],tileRanks[i]];}
@@ -170,12 +171,26 @@
     line(72,72,1848,72);line(72,124,1848,124);
     line(72,72,72,1008);line(1848,72,1848,1008);
     line(960,124,960,960);
-    mono(`%0  QR V${set.version}-${set.ecc}`,100,107,20,C.ink);
+    mono(minimalMode==='pipe'?'%0  Base64':`%0  QR V${set.version}-${set.ecc}`,100,107,20,C.ink);
     mono('%1  receiver',996,107,20,C.ink);
-    const qr=qrImage(minimalMode,idx),scale=minimalMode==='qr12'?9:3,size=qr.width*scale;
-    c.imageSmoothingEnabled=false;
-    c.drawImage(qr,516-Math.floor(size/2),550-Math.floor(size/2),size,size);
-    c.imageSmoothingEnabled=true;
+    if(minimalMode==='pipe'){
+      if(!base64Frames){
+        // Prefer actual data-rich shards over padding-only FEC shards in the film.
+        const rich=set.frames.filter(frame=>frame.object===1 && new Set(frame.line.slice(84,1984)).size>=40);
+        base64Frames=rich.length?rich:set.frames;
+      }
+      const frame=base64Frames[idx%base64Frames.length];
+      c.save();c.beginPath();c.rect(112,214,806,672);c.clip();
+      for(let row=0;row<25;row++){
+        mono(frame.line.slice(row*76,(row+1)*76),112,238+row*26,17,row===23?C.coral:row%4===0?C.mint:C.muted);
+      }
+      c.restore();
+    }else{
+      const qr=qrImage(minimalMode,idx),scale=minimalMode==='qr12'?9:3,size=qr.width*scale;
+      c.imageSmoothingEnabled=false;
+      c.drawImage(qr,516-Math.floor(size/2),550-Math.floor(size/2),size,size);
+      c.imageSmoothingEnabled=true;
+    }
     portrait(1070,225,650,p,false,t);
     if(p<1){
       rect(888,518,144,64,C.panel);

@@ -1,0 +1,100 @@
+{
+  "version": "0.2.1",
+  "parameters": [
+    {
+      "flag": "--backend",
+      "value": "pipe | text | qr",
+      "default": "pipe",
+      "description": "Choose a Base64 stream, sampled text, or QR playback."
+    },
+    {
+      "flag": "-o, --output",
+      "value": "DIRECTORY",
+      "default": "~/Downloads/from-SERVER/",
+      "description": "Choose the local destination directory."
+    },
+    {
+      "flag": "--resume",
+      "value": "",
+      "default": "automatic for unfinished jobs",
+      "description": "Require the saved snapshot. Fails if no local record exists; mutually exclusive with --fresh."
+    },
+    {
+      "flag": "--fresh",
+      "value": "",
+      "default": "off",
+      "description": "Prepare a new snapshot of the current source, keeping previous snapshots and state."
+    },
+    {
+      "flag": "--speed",
+      "value": "auto | safe | balanced | fast | turbo",
+      "default": "auto in QR mode",
+      "description": "Select a QR profile. Use --fps for text and pipe instead."
+    },
+    {
+      "flag": "--fps",
+      "value": "0.1–60",
+      "default": "30 for pipe/text; QR profile",
+      "description": "Limit sender batches or screens per second. This setting is not measured throughput."
+    },
+    {
+      "flag": "--capture-fps",
+      "value": "0.1–120",
+      "default": "120 for pipe/text; QR profile",
+      "description": "Limit local capture polling per second."
+    },
+    {
+      "flag": "--timeout",
+      "value": "SECONDS > 0",
+      "default": "no receive time limit",
+      "description": "Stop this reception after the time limit and retain its checkpoint."
+    },
+    {
+      "flag": "--max-bytes",
+      "value": "BYTES > 0",
+      "default": "8589934592 (8 GiB)",
+      "description": "Limit both the original file and transport object. Manual recv defaults to 1 GiB."
+    },
+    {
+      "flag": "--no-ui",
+      "value": "",
+      "default": "automatic UI selection",
+      "description": "Use a background tmux canvas and print progress in the current shell."
+    },
+    {
+      "flag": "--fixed-rate",
+      "value": "",
+      "default": "off",
+      "description": "Keep the requested sending rate without adaptive slowdown."
+    },
+    {
+      "flag": "--benchmark",
+      "value": "",
+      "default": "off",
+      "description": "Benchmark QR profiles for a host and store complete, verified recommendations."
+    },
+    {
+      "flag": "--list-speeds",
+      "value": "",
+      "default": "off",
+      "description": "List available QR speed profiles without starting a transfer."
+    },
+    {
+      "flag": "-h, --help",
+      "value": "",
+      "default": "",
+      "description": "Print the one-command help."
+    }
+  ],
+  "commands": {
+    "get": "usage: shadow-ink get [-h] [--backend {pipe,text,qr}] [-o OUTPUT]\n                      [--fresh | --resume]\n                      [--speed {auto,safe,balanced,fast,turbo}]\n                      [--list-speeds] [--benchmark] [--fps FPS]\n                      [--capture-fps CAPTURE_FPS] [--fixed-rate]\n                      [--timeout TIMEOUT] [--max-bytes MAX_BYTES] [--no-ui]\n                      [source] [remote_path]\n\n自动启动本地 tmux，通过 SSH 终端字符接收远程文件或文件夹。用法：shadow-ink SERVER FILEPATH\n\npositional arguments:\n  source                SSH 服务器；也支持服务器:远程路径\n  remote_path           远程文件路径；也支持 SERVER:PATH 写法\n\noptions:\n  -h, --help            show this help message and exit\n  --backend {pipe,text,qr}\n                        pipe（默认）：tmux 输出流；text：逐行字符采样；qr：兼容二维码\n  -o OUTPUT, --output OUTPUT\n                        保存目录，默认 ~/Downloads/from-服务器\n  --fresh               重新准备当前内容，不续传旧快照\n  --resume              继续上次快照；没有本地断点时明确报错（默认自动续传未完成任务）\n  --speed {auto,safe,balanced,fast,turbo}\n                        auto（默认）使用有效实测推荐；其余为速度档位\n  --list-speeds         显示速度档位\n  --benchmark           实测二维码容量 × 10/20/30/60 fps，并保存自动档位\n  --fps FPS             覆盖档位发送帧率，0.1–60\n  --capture-fps CAPTURE_FPS\n                        覆盖档位接收采样率，0.1–120\n  --fixed-rate          固定发送帧率，停滞时不自动降帧\n  --timeout TIMEOUT     接收时限（秒），到时保存断点\n  --max-bytes MAX_BYTES\n                        最大文件字节数，默认 8 GiB\n  --no-ui               后台传输，前台仅显示进度\n",
+    "prepare": "Snapshot and optionally compress a file into an immutable playback bundle\n\nUsage: shadow-ink prepare [OPTIONS] --out <OUT> <INPUT>\n\nArguments:\n  <INPUT>  \n\nOptions:\n      --out <OUT>                    \n      --compress <COMPRESS>          [default: auto] [possible values: none, auto, zstd]\n      --symbol-bytes <SYMBOL_BYTES>  [default: 224]\n      --fec <FEC>                    [default: rs:64:96]\n  -h, --help                         Print help\n",
+    "send": "Play text or QR frames in the current terminal. q quits; space pauses\n\nUsage: shadow-ink send [OPTIONS] <BUNDLE>\n\nArguments:\n  <BUNDLE>  \n\nOptions:\n      --backend <BACKEND>                    [default: qr] [possible values: qr, text, text-stream]\n      --qr-version <QR_VERSION>              [default: 12]\n      --ecc <ECC>                            [default: M] [possible values: L, M, Q, H]\n      --fps <FPS>                            [default: 3]\n      --loop                                 \n      --rounds <ROUNDS>                      \n      --only-generations <ONLY_GENERATIONS>  \n  -h, --help                                 Print help\n",
+    "recv": "Recover from a local tmux pane or a recorded video. Never connects to server A\n\nUsage: shadow-ink recv [OPTIONS] --source <SOURCE> --output <OUTPUT> --state <STATE>\n\nOptions:\n      --source <SOURCE>            \n      --output <OUTPUT>            \n      --state <STATE>              \n      --tmux-socket <TMUX_SOCKET>  \n      --capture-fps <CAPTURE_FPS>  [default: 20]\n      --timeout <TIMEOUT>          \n      --max-bytes <MAX_BYTES>      [default: 1073741824]\n      --transfer-id <TRANSFER_ID>  \n      --roi <ROI>                  \n  -h, --help                       Print help\n",
+    "status": "Show persisted progress, missing generation ranges and reception statistics\n\nUsage: shadow-ink status <STATE>\n\nArguments:\n  <STATE>  \n\nOptions:\n  -h, --help  Print help\n",
+    "inspect": "Validate a prepared bundle and show its manifest and transfer identity\n\nUsage: shadow-ink inspect <BUNDLE>\n\nArguments:\n  <BUNDLE>  \n\nOptions:\n  -h, --help  Print help\n",
+    "doctor": "Check terminal geometry, pixel aspect and QR capacity; optionally show a pattern\n\nUsage: shadow-ink doctor [OPTIONS]\n\nOptions:\n      --source <SOURCE>            \n      --tmux-socket <TMUX_SOCKET>  \n      --bundle <BUNDLE>            \n      --qr-version <QR_VERSION>    [default: 12]\n      --ecc <ECC>                  [default: M] [possible values: L, M, Q, H]\n      --cell-pixels <CELL_PIXELS>  \n      --probe-pixels               \n      --show-pattern               \n  -h, --help                       Print help\n",
+    "panes": "List local tmux pane IDs and usable dimensions\n\nUsage: shadow-ink panes [OPTIONS]\n\nOptions:\n      --tmux-socket <TMUX_SOCKET>  \n  -h, --help                       Print help\n",
+    "calibrate": "Measure local tmux QR observations while the sender plays in another pane\n\nUsage: shadow-ink calibrate [OPTIONS] --source <SOURCE>\n\nOptions:\n      --source <SOURCE>            \n      --tmux-socket <TMUX_SOCKET>  \n      --seconds <SECONDS>          [default: 10]\n      --capture-fps <CAPTURE_FPS>  [default: 20]\n  -h, --help                       Print help\n"
+  }
+}

@@ -29,3 +29,7 @@ The user approved English on-screen captions, no voiceover, a dark terminal and 
 ## Evidence on Hand
 
 The repository includes protocol documentation and native runtime validation for v0.2.1. The supplied reference image is a local screenshot. Existing measured performance claims remain scoped to their original environments.
+
+## Documentation
+
+The user requested a simple GitHub Pages usage and parameter guide maintained in docs/. It uses static HTML/CSS/JavaScript, a searchable one-command parameter table, verbatim CLI help, and a build that excludes local-only demo assets. The documentation is the site root and the interactive film remains under /demo/.
