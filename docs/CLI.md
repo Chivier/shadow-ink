@@ -1,6 +1,6 @@
 # CLI reference
 
-Verbatim help from `shadow-ink 0.2.1`. Refresh with `python3 scripts/update-cli-reference.py`.
+Help captured from `shadow-ink 0.2.1` with trailing padding trimmed. Refresh with `python3 scripts/update-cli-reference.py`.
 
 ## get
 
@@ -49,10 +49,10 @@ Snapshot and optionally compress a file into an immutable playback bundle
 Usage: shadow-ink prepare [OPTIONS] --out <OUT> <INPUT>
 
 Arguments:
-  <INPUT>  
+  <INPUT>
 
 Options:
-      --out <OUT>                    
+      --out <OUT>
       --compress <COMPRESS>          [default: auto] [possible values: none, auto, zstd]
       --symbol-bytes <SYMBOL_BYTES>  [default: 224]
       --fec <FEC>                    [default: rs:64:96]
@@ -67,16 +67,16 @@ Play text or QR frames in the current terminal. q quits; space pauses
 Usage: shadow-ink send [OPTIONS] <BUNDLE>
 
 Arguments:
-  <BUNDLE>  
+  <BUNDLE>
 
 Options:
       --backend <BACKEND>                    [default: qr] [possible values: qr, text, text-stream]
       --qr-version <QR_VERSION>              [default: 12]
       --ecc <ECC>                            [default: M] [possible values: L, M, Q, H]
       --fps <FPS>                            [default: 3]
-      --loop                                 
-      --rounds <ROUNDS>                      
-      --only-generations <ONLY_GENERATIONS>  
+      --loop
+      --rounds <ROUNDS>
+      --only-generations <ONLY_GENERATIONS>
   -h, --help                                 Print help
 ```
 
@@ -88,15 +88,15 @@ Recover from a local tmux pane or a recorded video. Never connects to server A
 Usage: shadow-ink recv [OPTIONS] --source <SOURCE> --output <OUTPUT> --state <STATE>
 
 Options:
-      --source <SOURCE>            
-      --output <OUTPUT>            
-      --state <STATE>              
-      --tmux-socket <TMUX_SOCKET>  
+      --source <SOURCE>
+      --output <OUTPUT>
+      --state <STATE>
+      --tmux-socket <TMUX_SOCKET>
       --capture-fps <CAPTURE_FPS>  [default: 20]
-      --timeout <TIMEOUT>          
+      --timeout <TIMEOUT>
       --max-bytes <MAX_BYTES>      [default: 1073741824]
-      --transfer-id <TRANSFER_ID>  
-      --roi <ROI>                  
+      --transfer-id <TRANSFER_ID>
+      --roi <ROI>
   -h, --help                       Print help
 ```
 
@@ -108,7 +108,7 @@ Show persisted progress, missing generation ranges and reception statistics
 Usage: shadow-ink status <STATE>
 
 Arguments:
-  <STATE>  
+  <STATE>
 
 Options:
   -h, --help  Print help
@@ -122,7 +122,7 @@ Validate a prepared bundle and show its manifest and transfer identity
 Usage: shadow-ink inspect <BUNDLE>
 
 Arguments:
-  <BUNDLE>  
+  <BUNDLE>
 
 Options:
   -h, --help  Print help
@@ -136,14 +136,14 @@ Check terminal geometry, pixel aspect and QR capacity; optionally show a pattern
 Usage: shadow-ink doctor [OPTIONS]
 
 Options:
-      --source <SOURCE>            
-      --tmux-socket <TMUX_SOCKET>  
-      --bundle <BUNDLE>            
+      --source <SOURCE>
+      --tmux-socket <TMUX_SOCKET>
+      --bundle <BUNDLE>
       --qr-version <QR_VERSION>    [default: 12]
       --ecc <ECC>                  [default: M] [possible values: L, M, Q, H]
-      --cell-pixels <CELL_PIXELS>  
-      --probe-pixels               
-      --show-pattern               
+      --cell-pixels <CELL_PIXELS>
+      --probe-pixels
+      --show-pattern
   -h, --help                       Print help
 ```
 
@@ -155,7 +155,7 @@ List local tmux pane IDs and usable dimensions
 Usage: shadow-ink panes [OPTIONS]
 
 Options:
-      --tmux-socket <TMUX_SOCKET>  
+      --tmux-socket <TMUX_SOCKET>
   -h, --help                       Print help
 ```
 
@@ -167,8 +167,8 @@ Measure local tmux QR observations while the sender plays in another pane
 Usage: shadow-ink calibrate [OPTIONS] --source <SOURCE>
 
 Options:
-      --source <SOURCE>            
-      --tmux-socket <TMUX_SOCKET>  
+      --source <SOURCE>
+      --tmux-socket <TMUX_SOCKET>
       --seconds <SECONDS>          [default: 10]
       --capture-fps <CAPTURE_FPS>  [default: 20]
   -h, --help                       Print help

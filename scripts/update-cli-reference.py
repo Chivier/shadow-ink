@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refresh the documentation's verbatim CLI help and check one-command coverage."""
+"""Refresh the documentation's CLI help and check one-command coverage."""
 import argparse
 import json
 from pathlib import Path
@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary', default=shutil.which('shadow-ink') or str(ROOT / 'target/release/shadow-ink'))
 args = parser.parse_args()
 commands = ['get', 'prepare', 'send', 'recv', 'status', 'inspect', 'doctor', 'panes', 'calibrate']
-help_text = {name: subprocess.check_output([args.binary, name, '--help'], text=True) for name in commands}
+help_text = {name: '\n'.join(line.rstrip() for line in subprocess.check_output([args.binary, name, '--help'], text=True).splitlines()) + '\n' for name in commands}
 version = subprocess.check_output([args.binary, '--version'], text=True).strip().split()[-1]
 expected = re.search(r'^version = "([^"]+)"', (ROOT / 'Cargo.toml').read_text(), re.M).group(1)
 if version != expected:
@@ -39,7 +39,7 @@ if actual != covered:
     raise SystemExit(f'Update parameter descriptions: undocumented={actual-covered}, stale={covered-actual}')
 data = {'version': version, 'parameters': parameters, 'commands': help_text}
 (ROOT / 'docs/cli-reference.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-markdown = f'# CLI reference\n\nVerbatim help from `shadow-ink {version}`. Refresh with `python3 scripts/update-cli-reference.py`.\n'
+markdown = f'# CLI reference\n\nHelp captured from `shadow-ink {version}` with trailing padding trimmed. Refresh with `python3 scripts/update-cli-reference.py`.\n'
 for name, value in help_text.items():
     markdown += f'\n## {name}\n\n```text\n{value.rstrip()}\n```\n'
 (ROOT / 'docs/CLI.md').write_text(markdown)

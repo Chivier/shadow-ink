@@ -3,7 +3,7 @@
 The GitHub Pages site is maintained in this directory as plain HTML, CSS and JavaScript. No framework, package manager or external CDN is required.
 
 ```sh
-# Refresh verbatim CLI help and validate one-command option coverage.
+# Refresh CLI help and validate one-command option coverage.
 python3 scripts/update-cli-reference.py --binary ~/.local/bin/shadow-ink
 
 # Assemble the public docs and preserve the interactive demo under /demo/.
