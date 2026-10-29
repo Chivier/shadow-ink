@@ -4,12 +4,13 @@
   const params = new URLSearchParams(location.search);
   const reference = params.get('reference') === '1';
   const recording = params.get('record') === '1';
+  const minimalMode = recording && params.get('minimal') === '1' && ['qr12','qr40'].includes(params.get('mode')) ? params.get('mode') : null;
   if (recording) document.body.classList.add('record');
   const canvas = document.querySelector('#film');
   const c = canvas.getContext('2d', { alpha: false });
   const $ = selector => document.querySelector(selector);
   const C = { bg:'#111313', panel:'#171b1a', line:'#34413c', ink:'#f2eee7', muted:'#a3b1ac', coral:'#ff876e', mint:'#a9d9ba', dim:'#25302c' };
-  const DURATION = 45;
+  const DURATION = minimalMode ? 10 : 45;
   const starts = [0, 5, 15, 25, 36];
   const titles = ['Through the terminal.', 'A file, written in light.', 'A denser kind of signal.', 'Now, let the characters flow.', 'Every byte. Back where it belongs.'];
   const captions = ['One image. A terminal is all it takes.', 'QR · V12-M / 224-byte shards / CRC32C + Reed–Solomon', 'QR · V40-L / 2,893-byte shards / the same recovery protocol', 'Base64 · SI1 frames / tmux pipe-pane / no QR decoding', 'One original. One recovered copy. The same SHA-256.'];
@@ -160,7 +161,38 @@
     portrait(1205,436,330,1,true,t);
     progressBar(1,4,t);
   }
+  function drawMinimal(t){
+    const set=data.modes[minimalMode];
+    const p=smooth((t-.4)/8.1);
+    const idx=Math.floor(t*(minimalMode==='qr12'?8:18))%set.frames.length;
+    rect(0,0,1920,1080,C.bg);
+    rect(72,72,1776,936,C.panel);
+    line(72,72,1848,72);line(72,124,1848,124);
+    line(72,72,72,1008);line(1848,72,1848,1008);
+    line(960,124,960,960);
+    mono(`%0  QR V${set.version}-${set.ecc}`,100,107,20,C.ink);
+    mono('%1  receiver',996,107,20,C.ink);
+    const qr=qrImage(minimalMode,idx),scale=minimalMode==='qr12'?9:3,size=qr.width*scale;
+    c.imageSmoothingEnabled=false;
+    c.drawImage(qr,516-Math.floor(size/2),550-Math.floor(size/2),size,size);
+    c.imageSmoothingEnabled=true;
+    portrait(1070,225,650,p,false,t);
+    if(p<1){
+      rect(888,518,144,64,C.panel);
+      line(896,550,1027,550,C.line,2);
+      line(1020,544,1028,550,C.coral,2);line(1028,550,1020,556,C.coral,2);
+      for(let i=0;i<4;i++){
+        const phase=(t*1.3+i/4)%1;
+        rect(898+phase*118,546,8,8,i===0?C.mint:C.coral);
+      }
+    }
+    rect(1070,915,650,3,C.line);
+    rect(1070,915,650*p,3,p>=1?C.mint:C.coral);
+    rect(72,960,1776,48,'#283e34');
+    mono('shadow-ink  0:transfer*',100,992,19,C.mint);
+  }
   function draw(t){
+    if(minimalMode){drawMinimal(t);return;}
     const ch=chapterAt(t);header(ch,t);terminal(ch);
     if(ch===0)intro(t);else if(ch===4)finale(t);else transmission(ch,t);
     text(captions[ch],100,963,27,ch===4?C.mint:C.ink);

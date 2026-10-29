@@ -15,6 +15,7 @@ signal.signal(signal.SIGINT, signal.default_int_handler)
 ROOT = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--reference', action='store_true', help='Use the locally prepared reference image')
+parser.add_argument('--mode', choices=['film', 'qr12', 'qr40'], default='film', help='Full film, or a minimal 10-second QR transfer clip')
 parser.add_argument('--output', type=Path, default=ROOT / 'output/shadow-ink-demo.mp4')
 parser.add_argument('--fps', type=int, default=30, choices=[24, 30, 60])
 parser.add_argument('--width', type=int, default=1920)
@@ -45,10 +46,13 @@ try:
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             query = '?record=1' + ('&reference=1' if args.reference else '')
+            if args.mode != 'film':
+                query += '&minimal=1&mode=' + args.mode
             page.goto(f'http://127.0.0.1:{server.server_port}/{query}')
             page.wait_for_function('window.DEMO_READY === true', timeout=30000)
             page.evaluate('window.demo.pause()')
-            frames = 45 * args.fps
+            duration = page.evaluate('window.demo.duration')
+            frames = round(duration * args.fps)
             command = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-framerate', str(args.fps), '-i', 'pipe:0', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(args.output)]
             with (args.output.parent / (args.output.stem + '-encode.log')).open('w') as log:
                 encoder = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=log)
@@ -57,7 +61,7 @@ try:
                         page.evaluate('(t) => window.demo.seek(t)', frame / args.fps)
                         encoder.stdin.write(page.screenshot(type='jpeg', quality=96, animations='disabled'))
                         if frame % (args.fps * 5) == 0:
-                            print(f'Rendering {frame // args.fps:02d}s / 45s', flush=True)
+                            print(f'Rendering {frame // args.fps:02d}s / {duration}s', flush=True)
                     encoder.stdin.close()
                     if encoder.wait(timeout=120):
                         raise RuntimeError('ffmpeg failed; inspect the encode log')
@@ -67,7 +71,7 @@ try:
                         encoder.wait()
             if errors:
                 raise RuntimeError(errors)
-            report = {'output': str(args.output), 'seconds': 45, 'fps': args.fps, 'frames': frames, 'width': args.width, 'height': args.width * 9 // 16, 'source_sha256': page.evaluate('window.demo.payload.sha256'), 'scope': 'Deterministic HTML visualization; not a throughput benchmark.'}
+            report = {'output': str(args.output), 'mode': args.mode, 'seconds': duration, 'fps': args.fps, 'frames': frames, 'width': args.width, 'height': args.width * 9 // 16, 'source_sha256': page.evaluate('window.demo.payload.sha256'), 'scope': 'Deterministic HTML visualization; not a throughput benchmark.'}
             args.output.with_suffix('.json').write_text(json.dumps(report, indent=2) + '\n')
             print(json.dumps(report, indent=2))
         finally:
