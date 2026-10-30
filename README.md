@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/Chivier/shadow-ink/actions/workflows/check.yml"><img src="https://github.com/Chivier/shadow-ink/actions/workflows/check.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/Chivier/shadow-ink/releases/latest"><img src="https://img.shields.io/github/v/release/Chivier/shadow-ink" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Chivier/shadow-ink" alt="MIT license"></a>
+  <a href="https://github.com/Chivier/shadow-ink/releases/latest"><img src="docs/assets/badges/release.svg" alt="Release v0.2.1"></a>
+  <a href="LICENSE"><img src="docs/assets/badges/license.svg" alt="MIT license"></a>
 </p>
 
 <p align="center">
